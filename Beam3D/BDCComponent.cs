@@ -10,7 +10,6 @@ using Grasshopper.GUI;
 
 namespace Beam3D
 { 
-
     public class BDCComponent : GH_Component
     {
         public BDCComponent()
