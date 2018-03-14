@@ -64,7 +64,7 @@ namespace Beam3D
 
             if (startCalc)
             {
-                //testing 4
+                //testing 3
                 //Interpret and set material parameters
                 double E;       //Material Young's modulus, initial value 210000 [MPa]
                 double A;       //Area for each element in same order as geometry, initial value CFS100x100 3600 [mm^2]
