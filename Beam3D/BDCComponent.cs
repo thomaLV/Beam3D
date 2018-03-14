@@ -9,7 +9,8 @@ using System.Windows.Forms;
 using Grasshopper.GUI;
 
 namespace Beam3D
-{
+{ 
+    //This is a test commit
     public class BDCComponent : GH_Component
     {
         public BDCComponent()
