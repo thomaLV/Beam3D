@@ -95,7 +95,7 @@ namespace Beam3D
                 Vector<double> load_red;
                 CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
                 #endregion
-
+                
                 #region Solver Performance Test
                 string output_time = "";
 
