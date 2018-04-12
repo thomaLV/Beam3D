@@ -28,6 +28,8 @@ namespace Beam3D
             pManager.AddTextParameter("PointMoment", "PM", "Moment set in a point in [Nm]", GH_ParamAccess.list, "");
             pManager.AddBooleanParameter("Start calculations", "SC", "Set true to start calculations", GH_ParamAccess.item, false);
             pManager.AddBooleanParameter("Solver test?", "ST", "Set true to start solver performance test", GH_ParamAccess.item, false);
+            pManager.AddIntegerParameter("SolverIteration", "SI", "Number of iterations ran so far", GH_ParamAccess.item, 0);
+
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -36,7 +38,7 @@ namespace Beam3D
             pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
             pManager.AddNumberParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
             pManager.AddNumberParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
-            pManager.AddTextParameter("Solvers", "S", "Result of solver performance check", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("SolverIndex", "S", "Number of times run", GH_ParamAccess.item);
             //pManager.AddTextParameter("K_tot", "K", "K-matrix print", GH_ParamAccess.item);
         }
 
@@ -51,6 +53,8 @@ namespace Beam3D
             string mattxt = "";                             //Material in string format
             bool startCalc = false;
             bool startTest = false;
+            int solverIteration = 0;
+
 
             //Set expected inputs from Indata
             if (!DA.GetDataList(0, geometry)) return;       //sets geometry
@@ -60,6 +64,7 @@ namespace Beam3D
             if (!DA.GetDataList(4, momenttxt)) return;      //sets moment as string
             if (!DA.GetData(5, ref startCalc)) return;
             if (!DA.GetData(6, ref startTest)) return;
+            if (!DA.GetData(7, ref solverIteration)) return;
             #endregion
 
             if (startCalc)
@@ -95,18 +100,40 @@ namespace Beam3D
                 Vector<double> load_red;
                 CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
                 #endregion
-                
+
                 #region Solver Performance Test
                 if (startTest)
                 {
                     string output_time = "";
-                    string test = "=================START OF TEST=================" + Environment.NewLine;
-                    test += "Number of lines: " + geometry.Count.ToString() + Environment.NewLine;
+                    string performanceResult = "=================START OF TEST=================" + Environment.NewLine;
+                    performanceResult += "Number of lines: " + geometry.Count.ToString() + Environment.NewLine;
+                    string tester = "";
+
+                    //checking for error with writing to file (skip test if unable to write)
+                    try
+                    {
+                        using (System.IO.StreamWriter file =
+                        new System.IO.StreamWriter(@"solverTest.txt", true))
+                        {
+                            file.WriteLine(tester);
+                        }
+                    }
+                    //create new file if solverTest.txt does not exist
+                    catch (System.IO.DirectoryNotFoundException)
+                    {
+                        System.IO.File.WriteAllText(@"solverTest.txt", tester);
+                    }
+                    //other exception (no write access?)
+                    catch (Exception)
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Write to file error! Create file solverTest.txt in Koala folder and/or Rhinoceros 5.exe folder");
+                        return;
+                    }
 
                     int decimals = 2;
                     CheckSolvers(K_red, load_red, decimals, out output_time);
 
-                    test += output_time;
+                    performanceResult += output_time;
 
                     //append result to txt-file (at buildpath)
                     try
@@ -114,18 +141,19 @@ namespace Beam3D
                         using (System.IO.StreamWriter file =
                         new System.IO.StreamWriter(@"solverTest.txt", true))
                         {
-                            file.WriteLine(test);
+                            file.WriteLine(performanceResult);
                         }
                     }
                     //create new file if solverTest.txt does not exist
-                    catch (System.IO.DirectoryNotFoundException) 
+                    catch (System.IO.DirectoryNotFoundException)
                     {
                         System.IO.File.WriteAllText(@"\solverTest.txt", output_time);
                     }
 
+                    solverIteration++;
                 }
                 #endregion
-
+                
                 #region Calculate deformations, reaction forces and internal strains and stresses
                 //Calculate deformations
                 Vector<double> def_reduced;
@@ -147,6 +175,7 @@ namespace Beam3D
                 DA.SetDataList(1, reactions);
                 DA.SetDataList(2, internalStresses);
                 DA.SetDataList(3, internalStrains);
+                DA.SetData(4, solverIteration);
             }
         } //End of main component
 
