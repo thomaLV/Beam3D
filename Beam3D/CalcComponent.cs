@@ -97,12 +97,32 @@ namespace Beam3D
                 #endregion
 
                 #region Solver Performance Test
-                string output_time = "";
-
                 if (startTest)
                 {
+                    string output_time = "";
+                    string test = "=================START OF TEST=================" + Environment.NewLine;
+                    test += "Number of lines: " + geometry.Count.ToString() + Environment.NewLine;
+
                     int decimals = 2;
                     CheckSolvers(K_red, load_red, decimals, out output_time);
+
+                    test += output_time;
+
+                    //append result to txt-file (at buildpath)
+                    try
+                    {
+                        using (System.IO.StreamWriter file =
+                        new System.IO.StreamWriter(@"solverTest.txt", true))
+                        {
+                            file.WriteLine(test);
+                        }
+                    }
+                    //create new file if solverTest.txt does not exist
+                    catch (System.IO.DirectoryNotFoundException) 
+                    {
+                        System.IO.File.WriteAllText(@"\solverTest.txt", output_time);
+                    }
+
                 }
                 #endregion
 
@@ -127,7 +147,6 @@ namespace Beam3D
                 DA.SetDataList(1, reactions);
                 DA.SetDataList(2, internalStresses);
                 DA.SetDataList(3, internalStrains);
-                DA.SetData(4, output_time);
             }
         } //End of main component
 
@@ -222,11 +241,11 @@ namespace Beam3D
             output_time += "IsSymmetric? " + issym + ", IsDiagonalPositive? " + diagposi + ", IsHermitian? " + ishermitian + Environment.NewLine + Environment.NewLine;
 
             TrySolve(K_red, load_red, out time);
-            output_time += "Dense, unrounded K_red: " + Environment.NewLine + time + Environment.NewLine + Environment.NewLine;
+            output_time += "Dense, unrounded K_red: " + Environment.NewLine + time + Environment.NewLine;
 
             K_red = Matrix<double>.Build.SparseOfMatrix(K_red);
             TrySolve(K_red, load_red, out time);
-            output_time += "Sparse, unrounded K_red: " + Environment.NewLine + time + Environment.NewLine + Environment.NewLine;
+            output_time += "Sparse, unrounded K_red: " + Environment.NewLine + time + Environment.NewLine;
 
             //Rounded
             K_red = Matrix<double>.Build.DenseOfMatrix(K_red);
@@ -239,16 +258,16 @@ namespace Beam3D
             output_time += "IsSymmetric? " + issym + ", IsDiagonalPositive? " + diagposi + ", IsHermitian? " + ishermitian + Environment.NewLine + Environment.NewLine;
 
             TrySolve(K_red, load_red, out time);
-            output_time += "Dense, rounded K_red: " + Environment.NewLine + time + Environment.NewLine + Environment.NewLine;
+            output_time += "Dense, rounded K_red: " + Environment.NewLine + time + Environment.NewLine;
 
             K_red = Matrix<double>.Build.SparseOfMatrix(K_red);
             TrySolve(K_red, load_red, out time);
-            output_time += "Sparse, rounded K_red: " + Environment.NewLine + time;
+            output_time += "Sparse, rounded K_red: " + Environment.NewLine + time + Environment.NewLine;
+            output_time += "=================END OF TEST=================" + Environment.NewLine + Environment.NewLine;
         }
 
         private void TrySolve(Matrix<double> A, Vector<double> load_red, out string time)
         {
-            var def_reduced = Vector<double>.Build.Dense(load_red.Count);
             time = "TrySolve Start:" + Environment.NewLine;
             long timer = 0;
             Stopwatch watch = new Stopwatch();
@@ -264,6 +283,13 @@ namespace Beam3D
             {
                 time += "Regular solve raised exception" + Environment.NewLine;
             }
+
+            if (A.GetType().Name == "SparseMatrix")
+            {
+                time += "End of TrySolve since Matrix is Sparse (other solvers are unsupported)" + Environment.NewLine;
+                return;
+            }
+
             try
             {
                 watch.Start();
