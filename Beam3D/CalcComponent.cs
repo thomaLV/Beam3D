@@ -28,8 +28,6 @@ namespace Beam3D
             pManager.AddTextParameter("PointMoment", "PM", "Moment set in a point in [Nm]", GH_ParamAccess.list, "");
             pManager.AddBooleanParameter("Start calculations", "SC", "Set true to start calculations", GH_ParamAccess.item, false);
             pManager.AddBooleanParameter("Solver test?", "ST", "Set true to start solver performance test", GH_ParamAccess.item, false);
-            pManager.AddIntegerParameter("SolverIteration", "SI", "Number of iterations ran so far", GH_ParamAccess.item, 0);
-
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -38,8 +36,6 @@ namespace Beam3D
             pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
             pManager.AddNumberParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
             pManager.AddNumberParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
-            pManager.AddIntegerParameter("SolverIndex", "S", "Number of times run", GH_ParamAccess.item);
-            //pManager.AddTextParameter("K_tot", "K", "K-matrix print", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -53,7 +49,6 @@ namespace Beam3D
             string mattxt = "";                             //Material in string format
             bool startCalc = false;
             bool startTest = false;
-            int solverIteration = 0;
 
 
             //Set expected inputs from Indata
@@ -64,7 +59,6 @@ namespace Beam3D
             if (!DA.GetDataList(4, momenttxt)) return;      //sets moment as string
             if (!DA.GetData(5, ref startCalc)) return;
             if (!DA.GetData(6, ref startTest)) return;
-            if (!DA.GetData(7, ref solverIteration)) return;
             #endregion
 
             if (startCalc)
@@ -149,8 +143,7 @@ namespace Beam3D
                     {
                         System.IO.File.WriteAllText(@"\solverTest.txt", output_time);
                     }
-
-                    solverIteration++;
+                    
                 }
                 #endregion
                 
@@ -175,7 +168,6 @@ namespace Beam3D
                 DA.SetDataList(1, reactions);
                 DA.SetDataList(2, internalStresses);
                 DA.SetDataList(3, internalStrains);
-                DA.SetData(4, solverIteration);
             }
         } //End of main component
 
@@ -622,7 +614,7 @@ namespace Beam3D
             {
                 int i = points.IndexOf(point);
                 int j = coordlist.IndexOf(point);
-                loads[i * 6 + 0] = inputLoads[j * 3 + 0];
+                loads[i * 6 + 0] = inputLoads[j * 3 + 0]; //is loads out of range? (doesn't seem to have been initialized with size yet)
                 loads[i * 6 + 1] = inputLoads[j * 3 + 1];
                 loads[i * 6 + 2] = inputLoads[j * 3 + 2];
             }
