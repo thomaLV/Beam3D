@@ -146,11 +146,59 @@ namespace Beam3D
                     
                 }
                 #endregion
-                
+
+                #region Convert to double[,] and double[] and calculate deflections
+                double[,] K_redu = new double[K_red.RowCount,K_red.ColumnCount];
+                for (int i = 0; i < K_red.RowCount; i++)
+                {
+                    for (int j = 0; j < K_red.ColumnCount; j++)
+                    {
+                        K_redu[i, j] = K_red[i, j];
+                    }
+                }
+                List<double> load_redu = new List<double>(load_red.Count);
+                for (int i = 0; i < load_red.Count; i++)
+                {
+                    load_redu.Add(load_red[i]);
+                }
+
+                string time = "=== Start ===" + Environment.NewLine;
+                long timer = 0;
+                Stopwatch watch = new Stopwatch();
+                watch.Start();
+
+                List<double> def_redu = Cholesky_Banachiewicz(K_redu, load_redu);
+                #endregion
+
+                watch.Stop();
+                timer = watch.ElapsedMilliseconds;
+                time += "Selfmade solution: " + timer.ToString() + Environment.NewLine;
+                watch.Start();
+
                 #region Calculate deformations, reaction forces and internal strains and stresses
                 //Calculate deformations
                 Vector<double> def_reduced;
                 def_reduced = K_red.Cholesky().Solve(load_red);
+
+                watch.Stop();
+                timer = watch.ElapsedMilliseconds - timer;
+                time += "MathNet solution: " + timer.ToString() + Environment.NewLine +
+                    "rdofs: " + load_red.Count + Environment.NewLine + "=== END ===" + Environment.NewLine;
+
+                try
+                {
+
+                    using (System.IO.StreamWriter file =
+                    new System.IO.StreamWriter(@"choleskyTest.txt", true))
+                    {
+                        file.WriteLine(time);
+                    }
+                }
+                //create new file if solverTest.txt does not exist
+                catch (System.IO.DirectoryNotFoundException)
+                {
+                    System.IO.File.WriteAllText(@"\choleskyTest.txt", time);
+                }
 
                 //Add the clamped dofs (= 0) to the deformations list
                 Vector<double> def_tot = RestoreTotalDeformationVector(def_reduced, bdc_value);
@@ -170,6 +218,124 @@ namespace Beam3D
                 DA.SetDataList(3, internalStrains);
             }
         } //End of main component
+
+        private List<double> Cholesky_Banachiewicz(double[,] m, List<double> load)
+        {
+
+            ///commented solution for swapping of rows (superfluous)
+            ///List<int> rearrangement = Enumerable.Range(0, m.GetLength(0) - 1).ToList(); //create list of numbers from 0 to rowlength of m - 1
+            ///List<double> sol = new List<double>();                                      //preallocate solution
+            ///
+            /// //swaps rows so that no diagonal element is 0
+            ///Tuple<double[,], List<double>, List<int>> T2 = CheckDiagonalAndRearrange(m, load, rearrangement);
+            ///double[,] A = T2.Item1;         //modified K-matrix (i.e. rows swapped if needed)
+            ///List<double> load1 = T2.Item2;  //rearrangement order (e.g. for list [0,1,2], swap row 0 and 2 -> [2,1,0])
+            ///
+            /// //remove A and load1 below if uncommenting this section
+
+            double[,] A = m;
+            List<double> load1 = load;
+
+            //Cholesky only works for square, symmetric and positive definite matrices. 
+            //Square matrix is guaranteed because of how matrix is constructed, but symmetry is checked
+            //           if (IsSymmetric(A))
+            //{ 
+            //preallocating L and L_transposed matrices
+            double[,] L = new double[m.GetLength(0), m.GetLength(1)];
+            double[,] L_T = new double[m.GetLength(0), m.GetLength(1)];
+
+            //creation of L and L_transposed matrices
+            for (int i = 0; i < L.GetLength(0); i++)
+            {
+                for (int j = 0; j <= i; j++)
+                {
+                    double L_sum = 0;
+                    if (i == j)
+                    {
+                        for (int k = 0; k < j; k++)
+                        {
+                            L_sum += L[i, k] * L[i, k];
+                        }
+                        L[i, i] = Math.Sqrt(A[i, j] - L_sum);
+                        L_T[i, i] = L[i, i];
+                    }
+                    else
+                    {
+                        for (int k = 0; k < j; k++)
+                        {
+                            L_sum += L[i, k] * L[j, k];
+                        }
+                        L[i, j] = (1 / L[j, j]) * (A[i, j] - L_sum);
+                        L_T[j, i] = L[i, j];
+                    }
+                }
+            }
+            //Solving L*y=load1 for temporary variable y
+            List<double> y = ForwardsSubstitution(load1, L);
+
+
+            //Solving L^T*x = y for deformations x
+            List<double> x = BackwardsSubstitution(load1, L_T, y);
+
+            return x;
+
+        //}
+            //else    //K-matrix is not symmetric
+            //{
+            //    throw new RuntimeException("Matrix is not symmetric");
+            //    //Debug.WriteLine("Matrix is not symmetric (ERROR!)");
+            //    return null;
+            //}
+        }
+
+        private static bool IsSymmetric(double[,] A)
+        {
+            int rowCount = A.GetLength(0);
+            for (int i = 0; i < rowCount; i++)
+            {
+                for (int j = 0; j < i; j++)
+                {
+                    if (A[i, j] != A[j, i])
+                    {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        private List<double> ForwardsSubstitution(List<double> load1, double[,] L)
+        {
+            List<double> y = new List<double>();
+            for (int i = 0; i < L.GetLength(1); i++)
+            {
+                double L_prev = 0;
+
+                for (int j = 0; j < i; j++)
+                {
+                    L_prev += L[i, j] * y[j];
+                }
+                y.Add((load1[i] - L_prev) / L[i, i]);
+            }
+            return y;
+        }
+
+        private List<double> BackwardsSubstitution(List<double> load1, double[,] L_T, List<double> y)
+        {
+            var x = new List<double>(new double[load1.Count]);
+            for (int i = L_T.GetLength(1) - 1; i > -1; i--)
+            {
+                double L_prev = 0;
+
+                for (int j = L_T.GetLength(1) - 1; j > i; j--)
+                {
+                    L_prev += L_T[i, j] * x[j];
+                }
+
+                x[i] = ((y[i] - L_prev) / L_T[i, i]);
+            }
+            return x;
+        }
 
         private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> points, double E, List<Line> geometry, out List<double> internalStresses, out List<double> internalStrains)
         {
@@ -235,7 +401,7 @@ namespace Beam3D
                     j++;
                 }
             }
-            load_red = Vector<double>.Build.DenseOfEnumerable(load_redu);
+            load_red = Vector.Build.DenseOfEnumerable(load_redu);
         }
 
         private static bool IsDiagonalPositive(Matrix<double> A)
