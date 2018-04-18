@@ -49,6 +49,10 @@ namespace Beam3D
             string mattxt = "";                             //Material in string format
             bool startCalc = false;
             bool startTest = false;
+            string time = "=== Start ===" + Environment.NewLine;
+            long timer = 0;
+            Stopwatch watch = new Stopwatch();
+            watch.Start();
 
 
             //Set expected inputs from Indata
@@ -85,9 +89,20 @@ namespace Beam3D
                 List<double> load = CreateLoadList(loadtxt, momenttxt, points);
                 #endregion
 
+                watch.Stop();
+                timer = watch.ElapsedMilliseconds;
+                time += "Prep geometry, bdc and load list: " + timer.ToString() + Environment.NewLine;
+
+                watch.Start();
+
                 #region Create global and reduced stiffness matrix
                 //Create global stiffness matrix
                 Matrix<double> K_tot = CreateGlobalStiffnessMatrix(geometry, points, E, A, Iy, Iz, J, G);
+
+                watch.Stop();
+                timer = watch.ElapsedMilliseconds - timer;
+                time += "K_G: " + timer.ToString() + Environment.NewLine;
+                watch.Start();
 
                 //Create reduced K-matrix and reduced load list (removed free dofs)
                 Matrix<double> K_red;
@@ -95,54 +110,59 @@ namespace Beam3D
                 CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
                 #endregion
 
+                watch.Stop();
+                timer = watch.ElapsedMilliseconds - timer;
+                time += "K_red: " + timer.ToString() + Environment.NewLine;
+                watch.Start();
+
                 #region Solver Performance Test
                 if (startTest)
                 {
-                    string output_time = "";
-                    string performanceResult = "=================START OF TEST=================" + Environment.NewLine;
-                    performanceResult += "Number of lines: " + geometry.Count.ToString() + Environment.NewLine;
-                    string tester = "";
+                    //string output_time = "";
+                    //string performanceResult = "=================START OF TEST=================" + Environment.NewLine;
+                    //performanceResult += "Number of lines: " + geometry.Count.ToString() + Environment.NewLine;
+                    //string tester = "";
 
-                    //checking for error with writing to file (skip test if unable to write)
-                    try
-                    {
-                        using (System.IO.StreamWriter file =
-                        new System.IO.StreamWriter(@"solverTest.txt", true))
-                        {
-                            file.WriteLine(tester);
-                        }
-                    }
-                    //create new file if solverTest.txt does not exist
-                    catch (System.IO.DirectoryNotFoundException)
-                    {
-                        System.IO.File.WriteAllText(@"solverTest.txt", tester);
-                    }
-                    //other exception (no write access?)
-                    catch (Exception)
-                    {
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Write to file error! Create file solverTest.txt in Koala folder and/or Rhinoceros 5.exe folder");
-                        return;
-                    }
+                    ////checking for error with writing to file (skip test if unable to write)
+                    //try
+                    //{
+                    //    using (System.IO.StreamWriter file =
+                    //    new System.IO.StreamWriter(@"solverTest.txt", true))
+                    //    {
+                    //        file.WriteLine(tester);
+                    //    }
+                    //}
+                    ////create new file if solverTest.txt does not exist
+                    //catch (System.IO.DirectoryNotFoundException)
+                    //{
+                    //    System.IO.File.WriteAllText(@"solverTest.txt", tester);
+                    //}
+                    ////other exception (no write access?)
+                    //catch (Exception)
+                    //{
+                    //    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Write to file error! Create file solverTest.txt in Koala folder and/or Rhinoceros 5.exe folder");
+                    //    return;
+                    //}
 
-                    int decimals = 2;
-                    CheckSolvers(K_red, load_red, decimals, out output_time);
+                    //int decimals = 2;
+                    //CheckSolvers(K_red, load_red, decimals, out output_time);
 
-                    performanceResult += output_time;
+                    //performanceResult += output_time;
 
-                    //append result to txt-file (at buildpath)
-                    try
-                    {
-                        using (System.IO.StreamWriter file =
-                        new System.IO.StreamWriter(@"solverTest.txt", true))
-                        {
-                            file.WriteLine(performanceResult);
-                        }
-                    }
-                    //create new file if solverTest.txt does not exist
-                    catch (System.IO.DirectoryNotFoundException)
-                    {
-                        System.IO.File.WriteAllText(@"\solverTest.txt", output_time);
-                    }
+                    ////append result to txt-file (at buildpath)
+                    //try
+                    //{
+                    //    using (System.IO.StreamWriter file =
+                    //    new System.IO.StreamWriter(@"solverTest.txt", true))
+                    //    {
+                    //        file.WriteLine(performanceResult);
+                    //    }
+                    //}
+                    ////create new file if solverTest.txt does not exist
+                    //catch (System.IO.DirectoryNotFoundException)
+                    //{
+                    //    System.IO.File.WriteAllText(@"\solverTest.txt", output_time);
+                    //}
                     
                 }
                 #endregion
@@ -152,17 +172,54 @@ namespace Beam3D
                 Vector<double> def_reduced;
                 def_reduced = K_red.Cholesky().Solve(load_red);
 
+                watch.Stop();
+                timer = watch.ElapsedMilliseconds - timer;
+                time += "Deflections: " + timer.ToString() + Environment.NewLine;
+                watch.Start();
+
                 //Add the clamped dofs (= 0) to the deformations list
                 Vector<double> def_tot = RestoreTotalDeformationVector(def_reduced, bdc_value);
 
+                watch.Stop();
+                timer = watch.ElapsedMilliseconds - timer;
+                time += "Restore to gdofs: " + timer.ToString() + Environment.NewLine;
+                watch.Start();
+
                 //Calculate the reaction forces from the deformations
                 Vector<double> reactions = K_tot.Multiply(def_tot);
-                
+
+                watch.Stop();
+                timer = watch.ElapsedMilliseconds - timer;
+                time += "Reaction forces: " + timer.ToString() + Environment.NewLine;
+                watch.Start();
+
                 //Calculate the internal strains and stresses in each member
                 List<double> internalStresses;
                 List<double> internalStrains;
                 CalculateInternalStrainsAndStresses(def_tot, points, E, geometry, out internalStresses, out internalStrains);
                 #endregion
+
+                int rdof = load_red.Count;
+
+                watch.Stop();
+                timer = watch.ElapsedMilliseconds - timer;
+                time += "Internal S and S: " + timer.ToString() + Environment.NewLine + "rdof: " + rdof + Environment.NewLine + "=== END ===";
+
+                try
+                {
+
+                    using (System.IO.StreamWriter file =
+                    new System.IO.StreamWriter(@"componentTest.txt", true))
+                    {
+                        file.WriteLine(time);
+                    }
+                }
+                //create new file if solverTest.txt does not exist
+                catch (System.IO.DirectoryNotFoundException)
+                {
+                    System.IO.File.WriteAllText(@"\componentTest.txt", time);
+                }
+
 
                 DA.SetDataList(0, def_tot);
                 DA.SetDataList(1, reactions);
@@ -251,116 +308,116 @@ namespace Beam3D
             return isPositive;
         }
 
-        private void CheckSolvers(Matrix<double> K_red, Vector<double> load_red, int decimals, out string output_time)
-        {
-            string time;
-            //Unrounded
-            output_time = "Unrounded K_red" + Environment.NewLine;
-            bool issym = K_red.IsSymmetric();
-            bool diagposi = IsDiagonalPositive(K_red);
-            bool ishermitian = K_red.IsHermitian();
-            output_time += "IsSymmetric? " + issym + ", IsDiagonalPositive? " + diagposi + ", IsHermitian? " + ishermitian + Environment.NewLine + Environment.NewLine;
+        //private void CheckSolvers(Matrix<double> K_red, Vector<double> load_red, int decimals, out string output_time)
+        //{
+        //    string time;
+        //    //Unrounded
+        //    output_time = "Unrounded K_red" + Environment.NewLine;
+        //    bool issym = K_red.IsSymmetric();
+        //    bool diagposi = IsDiagonalPositive(K_red);
+        //    bool ishermitian = K_red.IsHermitian();
+        //    output_time += "IsSymmetric? " + issym + ", IsDiagonalPositive? " + diagposi + ", IsHermitian? " + ishermitian + Environment.NewLine + Environment.NewLine;
 
-            TrySolve(K_red, load_red, out time);
-            output_time += "Dense, unrounded K_red: " + Environment.NewLine + time + Environment.NewLine;
+        //    TrySolve(K_red, load_red, out time);
+        //    output_time += "Dense, unrounded K_red: " + Environment.NewLine + time + Environment.NewLine;
 
-            K_red = Matrix<double>.Build.SparseOfMatrix(K_red);
-            TrySolve(K_red, load_red, out time);
-            output_time += "Sparse, unrounded K_red: " + Environment.NewLine + time + Environment.NewLine;
+        //    K_red = Matrix<double>.Build.SparseOfMatrix(K_red);
+        //    TrySolve(K_red, load_red, out time);
+        //    output_time += "Sparse, unrounded K_red: " + Environment.NewLine + time + Environment.NewLine;
 
-            //Rounded
-            K_red = Matrix<double>.Build.DenseOfMatrix(K_red);
-            K_red = RoundMatrix(K_red, decimals);
-            output_time += "Rounded to " + decimals + " decimals." + Environment.NewLine;
+        //    //Rounded
+        //    K_red = Matrix<double>.Build.DenseOfMatrix(K_red);
+        //    K_red = RoundMatrix(K_red, decimals);
+        //    output_time += "Rounded to " + decimals + " decimals." + Environment.NewLine;
 
-            issym = K_red.IsSymmetric();
-            diagposi = IsDiagonalPositive(K_red);
-            ishermitian = K_red.IsHermitian();
-            output_time += "IsSymmetric? " + issym + ", IsDiagonalPositive? " + diagposi + ", IsHermitian? " + ishermitian + Environment.NewLine + Environment.NewLine;
+        //    issym = K_red.IsSymmetric();
+        //    diagposi = IsDiagonalPositive(K_red);
+        //    ishermitian = K_red.IsHermitian();
+        //    output_time += "IsSymmetric? " + issym + ", IsDiagonalPositive? " + diagposi + ", IsHermitian? " + ishermitian + Environment.NewLine + Environment.NewLine;
 
-            TrySolve(K_red, load_red, out time);
-            output_time += "Dense, rounded K_red: " + Environment.NewLine + time + Environment.NewLine;
+        //    TrySolve(K_red, load_red, out time);
+        //    output_time += "Dense, rounded K_red: " + Environment.NewLine + time + Environment.NewLine;
 
-            K_red = Matrix<double>.Build.SparseOfMatrix(K_red);
-            TrySolve(K_red, load_red, out time);
-            output_time += "Sparse, rounded K_red: " + Environment.NewLine + time + Environment.NewLine;
-            output_time += "=================END OF TEST=================" + Environment.NewLine + Environment.NewLine;
-        }
+        //    K_red = Matrix<double>.Build.SparseOfMatrix(K_red);
+        //    TrySolve(K_red, load_red, out time);
+        //    output_time += "Sparse, rounded K_red: " + Environment.NewLine + time + Environment.NewLine;
+        //    output_time += "=================END OF TEST=================" + Environment.NewLine + Environment.NewLine;
+        //}
 
-        private void TrySolve(Matrix<double> A, Vector<double> load_red, out string time)
-        {
-            time = "TrySolve Start:" + Environment.NewLine;
-            long timer = 0;
-            Stopwatch watch = new Stopwatch();
-            try
-            {
-                watch.Start();
-                A.Solve(load_red);
-                watch.Stop();
-                timer = watch.ElapsedMilliseconds;
-                time += "Regular solve: " + timer.ToString() + Environment.NewLine;
-            }
-            catch (Exception)
-            {
-                time += "Regular solve raised exception" + Environment.NewLine;
-            }
+        //private void TrySolve(Matrix<double> A, Vector<double> load_red, out string time)
+        //{
+        //    time = "TrySolve Start:" + Environment.NewLine;
+        //    long timer = 0;
+        //    Stopwatch watch = new Stopwatch();
+        //    try
+        //    {
+        //        watch.Start();
+        //        A.Solve(load_red);
+        //        watch.Stop();
+        //        timer = watch.ElapsedMilliseconds;
+        //        time += "Regular solve: " + timer.ToString() + Environment.NewLine;
+        //    }
+        //    catch (Exception)
+        //    {
+        //        time += "Regular solve raised exception" + Environment.NewLine;
+        //    }
 
-            if (A.GetType().Name == "SparseMatrix")
-            {
-                time += "End of TrySolve since Matrix is Sparse (other solvers are unsupported)" + Environment.NewLine;
-                return;
-            }
+        //    if (A.GetType().Name == "SparseMatrix")
+        //    {
+        //        time += "End of TrySolve since Matrix is Sparse (other solvers are unsupported)" + Environment.NewLine;
+        //        return;
+        //    }
 
-            try
-            {
-                watch.Start();
-                A.Cholesky().Solve(load_red);
-                watch.Stop();
-                timer = watch.ElapsedMilliseconds - timer;
-                time += "Cholesky solve: " + timer.ToString() + Environment.NewLine;
-            }
-            catch (Exception)
-            {
-                time += "Cholesky solve raised exception" + Environment.NewLine;
-            }
-            try
-            {
-                watch.Start();
-                A.QR().Solve(load_red);
-                watch.Stop();
-                timer = watch.ElapsedMilliseconds - timer;
-                time += "QR solve: " + timer.ToString() + Environment.NewLine;
-            }
-            catch (Exception)
-            {
-                time += "QR solve raised exception" + Environment.NewLine;
-            }
+        //    try
+        //    {
+        //        watch.Start();
+        //        A.Cholesky().Solve(load_red);
+        //        watch.Stop();
+        //        timer = watch.ElapsedMilliseconds - timer;
+        //        time += "Cholesky solve: " + timer.ToString() + Environment.NewLine;
+        //    }
+        //    catch (Exception)
+        //    {
+        //        time += "Cholesky solve raised exception" + Environment.NewLine;
+        //    }
+        //    try
+        //    {
+        //        watch.Start();
+        //        A.QR().Solve(load_red);
+        //        watch.Stop();
+        //        timer = watch.ElapsedMilliseconds - timer;
+        //        time += "QR solve: " + timer.ToString() + Environment.NewLine;
+        //    }
+        //    catch (Exception)
+        //    {
+        //        time += "QR solve raised exception" + Environment.NewLine;
+        //    }
 
-            try
-            {
-                watch.Start();
-                A.Svd().Solve(load_red);
-                watch.Stop();
-                timer = watch.ElapsedMilliseconds - timer;
-                time += "Svd solve: " + timer.ToString() + Environment.NewLine;
-            }
-            catch (Exception)
-            {
-                time += "Svd solve raised exception" + Environment.NewLine;
-            }
-            try
-            {
-                watch.Start();
-                A.LU().Solve(load_red);
-                watch.Stop();
-                timer = watch.ElapsedMilliseconds - timer;
-                time += "LU solve: " + timer.ToString() + Environment.NewLine;
-            }
-            catch (Exception)
-            {
-                time += "LU solve raised exception" + Environment.NewLine;
-            }
-        }
+        //    try
+        //    {
+        //        watch.Start();
+        //        A.Svd().Solve(load_red);
+        //        watch.Stop();
+        //        timer = watch.ElapsedMilliseconds - timer;
+        //        time += "Svd solve: " + timer.ToString() + Environment.NewLine;
+        //    }
+        //    catch (Exception)
+        //    {
+        //        time += "Svd solve raised exception" + Environment.NewLine;
+        //    }
+        //    try
+        //    {
+        //        watch.Start();
+        //        A.LU().Solve(load_red);
+        //        watch.Stop();
+        //        timer = watch.ElapsedMilliseconds - timer;
+        //        time += "LU solve: " + timer.ToString() + Environment.NewLine;
+        //    }
+        //    catch (Exception)
+        //    {
+        //        time += "LU solve raised exception" + Environment.NewLine;
+        //    }
+        //}
 
         private string PrintMatrix(object B, string head)
         {
@@ -502,23 +559,7 @@ namespace Beam3D
                 T = T1.Stack(T2);
                 T = T.Stack(T3);
                 T = T.Stack(T4);
-
-                //Matrix<double> T = SparseMatrix.OfArray(new double[,]
-                //{
-                //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-                //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-                //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-                //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-                //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-                //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-                //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-                //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-                //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-                //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-                //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-                //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-                //});
-
+                
                 Matrix<double> T_T = T.Transpose();
 
                 double A1 = (E * A) / (L);

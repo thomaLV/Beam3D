@@ -70,7 +70,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BDCComponent.cs" />
-    <Compile Include="CalcComponent.cs" />
+    <Compile Include="..\..\..\..\OneDrive\FEM trening\3DBeam\Beam3D\For timetesting\CalcComponent.cs">
+      <Link>CalcComponent.cs</Link>
+    </Compile>
     <Compile Include="Beam3DInfo.cs" />
     <Compile Include="DeformedGeometry.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
