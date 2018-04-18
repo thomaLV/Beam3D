@@ -503,22 +503,6 @@ namespace Beam3D
                 T = T.Stack(T3);
                 T = T.Stack(T4);
 
-                //Matrix<double> T = SparseMatrix.OfArray(new double[,]
-                //{
-                //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-                //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-                //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-                //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-                //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-                //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-                //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-                //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-                //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-                //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-                //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-                //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-                //});
-
                 Matrix<double> T_T = T.Transpose();
 
                 double A1 = (E * A) / (L);
@@ -557,31 +541,18 @@ namespace Beam3D
                 int node1 = points.IndexOf(p1);
                 int node2 = points.IndexOf(p2);
 
-                //System.Diagnostics.Debug.WriteLine("Node1: " + node1.ToString() + ", Node2: " + node2.ToString());
-
-                //PrintMatrix(K_elem,"K_elem");
-
                 //Inputting values to correct entries in Global Stiffness Matrix
                 for (int i = 0; i < K_elem.RowCount / 2; i++)
                 {
-                    //top left 3x3 of k-element matrix
                     for (int j = 0; j < K_elem.ColumnCount / 2; j++)
                     {
+                        //top left 3x3 of k-element matrix
                         K_tot[node1 * 6 + i, node1 * 6 + j] += K_elem[i, j];
-                    }
-                    //top right 3x3 of k-element matrix  
-                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-                    {
+                        //top right 3x3 of k-element matrix  
                         K_tot[node1 * 6 + i, node2 * 6 + j] += K_elem[i, j + 6];
-                    }
-                    //bottom left 3x3 of k-element matrix
-                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-                    {
+                        //bottom left 3x3 of k-element matrix
                         K_tot[node2 * 6 + i, node1 * 6 + j] += K_elem[i + 6, j];
-                    }
-                    //bottom right 3x3 of k-element matrix
-                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-                    {
+                        //bottom right 3x3 of k-element matrix
                         K_tot[node2 * 6 + i, node2 * 6 + j] += K_elem[i + 6, j + 6];
                     }
                 }
