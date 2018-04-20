@@ -465,11 +465,11 @@ namespace Beam3D
                 double s1 = Math.Sin(alpha);
                 double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
 
-                Matrix<double> gamma;
+                Matrix<double> t;
 
                 if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
                 {
-                    gamma = Matrix<double>.Build.DenseOfArray(new double[,]
+                    t = Matrix<double>.Build.DenseOfArray(new double[,]
                 {
                     {      0, cy,  0},
                     { -cy*c1,  0, s1},
@@ -478,7 +478,7 @@ namespace Beam3D
                 }
                 else
                 {
-                    gamma = Matrix<double>.Build.DenseOfArray(new double[,]
+                    t = Matrix<double>.Build.DenseOfArray(new double[,]
                 {
                     {                     cx,       cy,                   cz},
                     {(-cx*cy*c1 - cz*s1)/cxz,   cxz*c1,(-cy*cz*c1+cx*s1)/cxz},
@@ -489,15 +489,15 @@ namespace Beam3D
                 var bd = Matrix<double>.Build;
 
                 Matrix<double> T1;
-                T1 = gamma.Append(bd.Dense(3, 9));
+                T1 = t.Append(bd.Dense(3, 9));
                 Matrix<double> T2;
-                T2 = bd.Dense(3, 3).Append(gamma);
+                T2 = bd.Dense(3, 3).Append(t);
                 T2 = T2.Append(bd.Dense(3, 6));
                 Matrix<double> T3;
-                T3 = bd.Dense(3, 6).Append(gamma);
+                T3 = bd.Dense(3, 6).Append(t);
                 T3 = T3.Append(bd.Dense(3, 3));
                 Matrix<double> T4;
-                T4 = bd.Dense(3, 9).Append(gamma);
+                T4 = bd.Dense(3, 9).Append(t);
                 Matrix<double> T;
                 T = T1.Stack(T2);
                 T = T.Stack(T3);
