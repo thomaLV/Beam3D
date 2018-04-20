@@ -486,8 +486,10 @@ namespace Beam3D
                 });
                 }
 
+                //Variable to building new matrices
                 var bd = Matrix<double>.Build;
 
+                //Stacking 3x12 matrices on top of each other until T = 12x12 (all other than t is zero)
                 Matrix<double> T1;
                 T1 = t.Append(bd.Dense(3, 9));
                 Matrix<double> T2;
