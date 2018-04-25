@@ -27,6 +27,8 @@ namespace Beam3D
         static int ry = 0;
         static int rz = 0;
 
+
+        //Method to allow c hanging of variables via GUI (see Component Visual)
         public static void setBDC(string s, int i)
         {
             if (s == "X")
@@ -65,9 +67,6 @@ namespace Beam3D
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddPointParameter("Points", "P", "Points to apply Boundary Conditions", GH_ParamAccess.list);
-            //pManager.AddLineParameter("Geometry", "G", "Geometry", GH_ParamAccess.list);
-            //pManager.AddIntegerParameter("Boundary Conditions", "BDC", "Boundary Conditions translation of x,y,z,rx,ry,rz where 0=clamped and 1=free", GH_ParamAccess.list, new List<int>());
-            //pManager.AddTextParameter("Locked direction", "Ldir", "Lock x, y or z direction for deformation", GH_ParamAccess.item, "");
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -94,189 +93,6 @@ namespace Beam3D
             {
                 pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString);
             }
-            #endregion
-
-            #region TODO (implement lock_dir)
-            //lock_dir = lock_dir.ToUpper();
-
-            //Preallocate temporary variables
-            //string BDCString;
-            //int tbdcx = 0;
-            //int tbdcy = 0;
-            //int tbdcz = 0;
-            //int rbdcx = 0;
-            //int rbdcy = 0;
-            //int rbdcz = 0;
-
-
-            //if (lock_dir == "")
-            //{
-            //    if (BDC.Count == 1) //Boundary condition input for identical conditions in all points. Split into if/else for optimization
-            //    {
-            //        tbdcx = BDC[0];
-            //        tbdcy = BDC[0];
-            //        tbdcz = BDC[0];
-            //        rbdcx = BDC[0];
-            //        rbdcy = BDC[0];
-            //        rbdcz = BDC[0];
-
-            //        BDCString = tbdcx + "," + tbdcy + "," + tbdcz + "," + rbdcx + "," + rbdcy + "," + rbdcz;
-            //        for (int i = 0; i < pointList.Count; i++)   //Format stringline for all points (identical boundary conditions for all points)
-            //        {
-            //            pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString);
-            //        }
-            //    }
-            //    else if (BDC.Count == 6) //Boundary condition input for identical conditions in all points. Split into if/else for optimization
-            //    {
-            //        tbdcx = BDC[0];
-            //        tbdcy = BDC[1];
-            //        tbdcz = BDC[2];
-            //        rbdcx = BDC[3];
-            //        rbdcy = BDC[4];
-            //        rbdcz = BDC[5];
-
-            //        BDCString = tbdcx + "," + tbdcy + "," + tbdcz + "," + rbdcx + "," + rbdcy + "," + rbdcz;
-
-            //        for (int i = 0; i < pointList.Count; i++)   //Format stringline for all points (identical boundary conditions for all points)
-            //        {
-            //            pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString);
-            //        }
-            //    }
-            //    else    //BDCs are not identical for all points
-            //    {
-            //        for (int i = 0; i < pointList.Count; i++)
-            //        {
-            //            if (i > (BDC.Count / 6) - 1)  //Are there more points than BDCs given? (BDC always lists x,y,z per point)
-            //            {
-            //                //use values from last BDC in list of BDCs
-            //                BDCString = tbdcx + "," + tbdcy + "," + tbdcz + "," + rbdcx + "," + rbdcy + "," + rbdcz;
-            //            }
-            //            else
-            //            {
-            //                //retrieve BDC for x,y,z-dir
-            //                tbdcx = BDC[i * 6 + 0];
-            //                tbdcy = BDC[i * 6 + 1];
-            //                tbdcz = BDC[i * 6 + 2];
-            //                rbdcx = BDC[i * 6 + 3];
-            //                rbdcy = BDC[i * 6 + 4];
-            //                rbdcz = BDC[i * 6 + 5];
-            //                BDCString = tbdcx + "," + tbdcy + "," + tbdcz + "," + rbdcx + "," + rbdcy + "," + rbdcz;
-            //            }
-            //            pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString);    //Add stringline to list of strings
-            //        }
-            //    }
-            //}
-            //else
-            //{
-            //    bool lx = false;
-            //    bool ly = false;
-            //    bool lz = false;
-            //    bool rx = false;
-            //    bool ry = false;
-            //    bool rz = false;
-
-            //    if (lock_dir == "X")
-            //    {
-            //        lx = true;
-            //        tbdcx = 0;
-            //    }
-            //    else if (lock_dir == "Y")
-            //    {
-            //        ly = true;
-            //        tbdcy = 0;
-            //    }
-            //    else if (lock_dir == "Z")
-            //    {
-            //        ly = true;
-            //        tbdcz = 0;
-            //    }
-            //    else if (lock_dir == "MX")
-            //    {
-            //        rx = true;
-            //        rbdcx = 0;
-            //    }
-            //    else if (lock_dir == "MY")
-            //    {
-            //        ry = true;
-            //        rbdcy = 0;
-            //    }
-            //    else if (lock_dir == "MZ")
-            //    {
-            //        ry = true;
-            //        rbdcz = 0;
-            //    }
-
-            //    List<Point3d> points = CreatePointList(geometry);
-            //    for (int i = 0; i < pointList.Count; i++)
-            //    {
-            //        points.Remove(pointList[i]);
-            //    }
-
-            //    for (int i = 0; i < points.Count; i++)
-            //    {
-            //        if (!lx) tbdcx = 1;
-            //        if (!ly) tbdcy = 1;
-            //        if (!lz) tbdcz = 1;
-            //        if (!rx) rbdcx = 1;
-            //        if (!ry) rbdcy = 1;
-            //        if (!rz) rbdcz = 1;
-
-            //        BDCString = tbdcx + "," + tbdcy + "," + tbdcz + "," + rbdcx + "," + rbdcy + "," + rbdcz;
-            //        pointInStringFormat.Add(points[i].X + "," + points[i].Y + "," + points[i].Z + ":" + BDCString);
-            //    }
-
-            //    if (BDC.Count == 1) //Boundary condition input for identical conditions in all points. Split into if/else for optimization
-            //    {
-            //        if (!lx) tbdcx = BDC[0];
-            //        if (!ly) tbdcy = BDC[0];
-            //        if (!lz) tbdcz = BDC[0];
-            //        if (!rx) rbdcx = BDC[0];
-            //        if (!ry) rbdcy = BDC[0];
-            //        if (!rz) rbdcz = BDC[0];
-
-            //        BDCString = tbdcx + "," + tbdcy + "," + tbdcz + "," + rbdcx + "," + rbdcy + "," + rbdcz;
-            //        for (int i = 0; i < pointList.Count; i++)   //Format stringline for all points (identical boundary conditions for all points)
-            //        {
-            //            pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString);
-            //        }
-            //    }
-            //    else if (BDC.Count == 6) //Boundary condition input for identical conditions in all points. Split into if/else for optimization
-            //    {
-            //        if (!lx) tbdcx = BDC[0];
-            //        if (!ly) tbdcy = BDC[1];
-            //        if (!lz) tbdcz = BDC[2];
-            //        if (!rx) rbdcx = BDC[3];
-            //        if (!ry) rbdcy = BDC[4];
-            //        if (!rz) rbdcz = BDC[5];
-            //        BDCString = tbdcx + "," + tbdcy + "," + tbdcz + "," + rbdcx + "," + rbdcy + "," + rbdcz;
-            //        for (int i = 0; i < pointList.Count; i++)   //Format stringline for all points (identical boundary conditions for all points)
-            //        {
-            //            pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString);
-            //        }
-            //    }
-            //    else    //BDCs are not identical for all points
-            //    {
-            //        for (int i = 0; i < pointList.Count; i++)
-            //        {
-            //            if (i > (BDC.Count / 6) - 1)  //Are there more points than BDCs given? (BDC always lists x,y,z per point)
-            //            {
-            //                BDCString = tbdcx + "," + tbdcy + "," + tbdcz + "," + rbdcx + "," + rbdcy + "," + rbdcz;
-            //            }
-            //            else
-            //            {
-            //                //retrieve BDC for x,y,z-dir
-            //                if (!lx) tbdcx = BDC[i * 6];
-            //                if (!ly) tbdcy = BDC[i * 6 + 1];
-            //                if (!lz) tbdcz = BDC[i * 6 + 2];
-            //                if (!rx) rbdcx = BDC[i * 6 + 3];
-            //                if (!ry) rbdcy = BDC[i * 6 + 4];
-            //                if (!rz) rbdcz = BDC[i * 6 + 5];
-            //                BDCString = tbdcx + "," + tbdcy + "," + tbdcz + "," + rbdcx + "," + rbdcy + "," + rbdcz;
-            //            }
-            //            pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString);    //Add stringline to list of strings
-            //        }
-            //    }
-            //}
             #endregion
 
             DA.SetDataList(0, pointInStringFormat);
