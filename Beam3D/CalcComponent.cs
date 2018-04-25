@@ -28,8 +28,6 @@ namespace Beam3D
             pManager.AddTextParameter("PointMoment", "PM", "Moment set in a point in [Nm]", GH_ParamAccess.list, "");
             pManager.AddBooleanParameter("Start calculations", "SC", "Set true to start calculations", GH_ParamAccess.item, false);
             pManager.AddBooleanParameter("Solver test?", "ST", "Set true to start solver performance test", GH_ParamAccess.item, false);
-            pManager.AddIntegerParameter("SolverIteration", "SI", "Number of iterations ran so far", GH_ParamAccess.item, 0);
-
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -38,8 +36,6 @@ namespace Beam3D
             pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
             pManager.AddNumberParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
             pManager.AddNumberParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
-            pManager.AddIntegerParameter("SolverIndex", "S", "Number of times run", GH_ParamAccess.item);
-            //pManager.AddTextParameter("K_tot", "K", "K-matrix print", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -53,7 +49,6 @@ namespace Beam3D
             string mattxt = "";                             //Material in string format
             bool startCalc = false;
             bool startTest = false;
-            int solverIteration = 0;
 
 
             //Set expected inputs from Indata
@@ -64,7 +59,6 @@ namespace Beam3D
             if (!DA.GetDataList(4, momenttxt)) return;      //sets moment as string
             if (!DA.GetData(5, ref startCalc)) return;
             if (!DA.GetData(6, ref startTest)) return;
-            if (!DA.GetData(7, ref solverIteration)) return;
             #endregion
 
             if (startCalc)
@@ -149,8 +143,7 @@ namespace Beam3D
                     {
                         System.IO.File.WriteAllText(@"\solverTest.txt", output_time);
                     }
-
-                    solverIteration++;
+                    
                 }
                 #endregion
                 
@@ -175,7 +168,6 @@ namespace Beam3D
                 DA.SetDataList(1, reactions);
                 DA.SetDataList(2, internalStresses);
                 DA.SetDataList(3, internalStrains);
-                DA.SetData(4, solverIteration);
             }
         } //End of main component
 
@@ -473,11 +465,11 @@ namespace Beam3D
                 double s1 = Math.Sin(alpha);
                 double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
 
-                Matrix<double> gamma;
+                Matrix<double> t;
 
                 if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
                 {
-                    gamma = Matrix<double>.Build.DenseOfArray(new double[,]
+                    t = Matrix<double>.Build.DenseOfArray(new double[,]
                 {
                     {      0, cy,  0},
                     { -cy*c1,  0, s1},
@@ -486,7 +478,7 @@ namespace Beam3D
                 }
                 else
                 {
-                    gamma = Matrix<double>.Build.DenseOfArray(new double[,]
+                    t = Matrix<double>.Build.DenseOfArray(new double[,]
                 {
                     {                     cx,       cy,                   cz},
                     {(-cx*cy*c1 - cz*s1)/cxz,   cxz*c1,(-cy*cz*c1+cx*s1)/cxz},
@@ -494,38 +486,24 @@ namespace Beam3D
                 });
                 }
 
+                //Variable to building new matrices
                 var bd = Matrix<double>.Build;
 
+                //Stacking 3x12 matrices on top of each other until T = 12x12 (all other than t is zero)
                 Matrix<double> T1;
-                T1 = gamma.Append(bd.Dense(3, 9));
+                T1 = t.Append(bd.Dense(3, 9));
                 Matrix<double> T2;
-                T2 = bd.Dense(3, 3).Append(gamma);
+                T2 = bd.Dense(3, 3).Append(t);
                 T2 = T2.Append(bd.Dense(3, 6));
                 Matrix<double> T3;
-                T3 = bd.Dense(3, 6).Append(gamma);
+                T3 = bd.Dense(3, 6).Append(t);
                 T3 = T3.Append(bd.Dense(3, 3));
                 Matrix<double> T4;
-                T4 = bd.Dense(3, 9).Append(gamma);
+                T4 = bd.Dense(3, 9).Append(t);
                 Matrix<double> T;
                 T = T1.Stack(T2);
                 T = T.Stack(T3);
                 T = T.Stack(T4);
-
-                //Matrix<double> T = SparseMatrix.OfArray(new double[,]
-                //{
-                //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-                //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-                //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-                //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-                //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-                //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-                //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-                //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-                //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-                //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-                //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-                //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-                //});
 
                 Matrix<double> T_T = T.Transpose();
 
@@ -565,31 +543,18 @@ namespace Beam3D
                 int node1 = points.IndexOf(p1);
                 int node2 = points.IndexOf(p2);
 
-                //System.Diagnostics.Debug.WriteLine("Node1: " + node1.ToString() + ", Node2: " + node2.ToString());
-
-                //PrintMatrix(K_elem,"K_elem");
-
                 //Inputting values to correct entries in Global Stiffness Matrix
                 for (int i = 0; i < K_elem.RowCount / 2; i++)
                 {
-                    //top left 3x3 of k-element matrix
                     for (int j = 0; j < K_elem.ColumnCount / 2; j++)
                     {
+                        //top left 3x3 of k-element matrix
                         K_tot[node1 * 6 + i, node1 * 6 + j] += K_elem[i, j];
-                    }
-                    //top right 3x3 of k-element matrix  
-                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-                    {
+                        //top right 3x3 of k-element matrix  
                         K_tot[node1 * 6 + i, node2 * 6 + j] += K_elem[i, j + 6];
-                    }
-                    //bottom left 3x3 of k-element matrix
-                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-                    {
+                        //bottom left 3x3 of k-element matrix
                         K_tot[node2 * 6 + i, node1 * 6 + j] += K_elem[i + 6, j];
-                    }
-                    //bottom right 3x3 of k-element matrix
-                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-                    {
+                        //bottom right 3x3 of k-element matrix
                         K_tot[node2 * 6 + i, node2 * 6 + j] += K_elem[i + 6, j + 6];
                     }
                 }
@@ -622,7 +587,7 @@ namespace Beam3D
             {
                 int i = points.IndexOf(point);
                 int j = coordlist.IndexOf(point);
-                loads[i * 6 + 0] = inputLoads[j * 3 + 0];
+                loads[i * 6 + 0] = inputLoads[j * 3 + 0]; //is loads out of range? (doesn't seem to have been initialized with size yet)
                 loads[i * 6 + 1] = inputLoads[j * 3 + 1];
                 loads[i * 6 + 2] = inputLoads[j * 3 + 2];
             }
