@@ -71,7 +71,7 @@ namespace Beam3D
                 List<double> def = new List<double>();
                 List<Line> geometry = new List<Line>();
                 double scale = 1000;
-                List<Line> defGeometry = new List<Line>();
+                List<Curve> defGeometry = new List<Curve>();
                 List<Point3d> defPoints = new List<Point3d>();
 
                 //Set expected inputs from Indata
@@ -87,7 +87,6 @@ namespace Beam3D
                 int index = 0;
                 //loops through all points and scales x-, y- and z-dir
 
-                //u(x) = Na, N = shape func, a = nodal values (dof) 
                 foreach (Point3d point in points)
                 {
                     //fetch global x,y,z placement of point
@@ -109,8 +108,11 @@ namespace Beam3D
                     int i1 = points.IndexOf(line.From);
                     int i2 = points.IndexOf(line.To);
 
-                    //creates new line based on scaled deformation of said points
-                    defGeometry.Add(new Line(defPoints[i1], defPoints[i2]));
+                    //u(x) = Na, N = shape func, a = nodal values (dof) 
+
+                    //creates new curve(!) based on scaled deformation of said points
+                    defGeometry.Add(CurveShapeFunction(defPoints[i1], defPoints[i2]));
+
                 }
                 #endregion
 
@@ -120,6 +122,13 @@ namespace Beam3D
             }
         }   //End of main program
 
+        private Curve CurveShapeFunction(Point3d point3d1, Point3d point3d2)
+        {
+
+
+
+            throw new NotImplementedException();
+        }
 
         private List<Point3d> CreatePointList(List<Line> geometry)
         {
