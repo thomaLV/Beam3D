@@ -21,15 +21,25 @@ namespace Beam3D
         }
 
         //Initialize startcondition
-        static int startDef = 1;
+        static bool startDef = true;
+        static bool p2 = true;
+        static bool p3 = false;
 
 
         //Method to allow c hanging of variables via GUI (see Component Visual)
-        public static void setStart(string s, int i)
+        public static void setToggles(string s, bool i)
         {
             if (s == "Run")
             {
                 startDef = i;
+            }
+            else if (s == "2nd")
+            {
+                p2 = i;
+            }
+            else if (s == "3rd")
+            {
+                p3 = i;
             }
             Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
             Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
@@ -54,7 +64,7 @@ namespace Beam3D
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            if (startDef == 1)
+            if (startDef)
             {
                 #region Fetch input
                 //Expected inputs and outputs
@@ -156,22 +166,33 @@ namespace Beam3D
                 rec0.Height += 22;
 
                 Rectangle rec1 = rec0;
-                rec1.X = rec0.Left + 1; //bredde?[default + 1]
+                rec1.X = rec0.Left + 1;
                 rec1.Y = rec0.Bottom - 22;
                 rec1.Width = (rec0.Width) / 3 + 1;
                 rec1.Height = 22;
                 rec1.Inflate(-2, -2);
-                
+
+                Rectangle rec2 = rec1;
+                rec2.X = rec1.Right + 2;
+
+                Rectangle rec3 = rec2;
+                rec3.X = rec2.Right + 2;
 
                 Bounds = rec0;
                 ButtonBounds = rec1;
+                ButtonBounds2 = rec2;
+                ButtonBounds3 = rec3;
 
             }
 
             GH_Palette xColor = GH_Palette.Black;
+            GH_Palette yColor = GH_Palette.Black;
+            GH_Palette zColor = GH_Palette.Grey;
 
             private Rectangle ButtonBounds { get; set; }
-
+            private Rectangle ButtonBounds2 { get; set; }
+            private Rectangle ButtonBounds3 { get; set; }
+            
             protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
             {
                 base.Render(canvas, graphics, channel);
@@ -180,6 +201,18 @@ namespace Beam3D
                     GH_Capsule button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, xColor, "Run", 3, 0);
                     button.Render(graphics, Selected, false, false);
                     button.Dispose();
+                }
+                if (channel == GH_CanvasChannel.Objects)
+                {
+                    GH_Capsule button2 = GH_Capsule.CreateTextCapsule(ButtonBounds2, ButtonBounds2, yColor, "2nd", 2, 0);
+                    button2.Render(graphics, Selected, Owner.Locked, false);
+                    button2.Dispose();
+                }
+                if (channel == GH_CanvasChannel.Objects)
+                {
+                    GH_Capsule button3 = GH_Capsule.CreateTextCapsule(ButtonBounds3, ButtonBounds3, zColor, "3rd", 2, 0);
+                    button3.Render(graphics, Selected, Owner.Locked, false);
+                    button3.Dispose();
                 }
             }
 
@@ -191,8 +224,28 @@ namespace Beam3D
                     if (rec.Contains(e.CanvasLocation))
                     {
                         switchColor("Run");
-                        if (xColor == GH_Palette.Black) { DeformedGeometry.setStart("Run", 1); }
-                        if (xColor == GH_Palette.Grey) { DeformedGeometry.setStart("Run", 0); }
+                        if (xColor == GH_Palette.Black) { DeformedGeometry.setToggles("Run", true); }
+                        if (xColor == GH_Palette.Grey) { DeformedGeometry.setToggles("Run", false); }
+                        sender.Refresh();
+                        return GH_ObjectResponse.Handled;
+                    }
+                    rec = ButtonBounds2;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        if (yColor == GH_Palette.Black) { DeformedGeometry.setToggles("2nd", false); DeformedGeometry.setToggles("3rd", true); } 
+                        if (yColor == GH_Palette.Grey) { DeformedGeometry.setToggles("2nd", true); DeformedGeometry.setToggles("3rd", false); }
+                        switchColor("2nd");
+                        switchColor("3rd");
+                        sender.Refresh();
+                        return GH_ObjectResponse.Handled;
+                    }
+                    rec = ButtonBounds3;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        if (zColor == GH_Palette.Black) { DeformedGeometry.setToggles("3rd", false); DeformedGeometry.setToggles("2nd", false); }
+                        if (zColor == GH_Palette.Grey) { DeformedGeometry.setToggles("3rd", true); DeformedGeometry.setToggles("2nd", true); }
+                        switchColor("3rd");
+                        switchColor("2nd");
                         sender.Refresh();
                         return GH_ObjectResponse.Handled;
                     }
@@ -206,6 +259,16 @@ namespace Beam3D
                 {
                     if (xColor == GH_Palette.Black) { xColor = GH_Palette.Grey; }
                     else { xColor = GH_Palette.Black; }
+                }
+                else if (button == "2nd")
+                {
+                    if (yColor == GH_Palette.Black) { yColor = GH_Palette.Grey; }
+                    else { yColor = GH_Palette.Black; }
+                }
+                else if (button == "3rd")
+                {
+                    if (zColor == GH_Palette.Black) { zColor = GH_Palette.Grey; }
+                    else { zColor = GH_Palette.Black; }
                 }
             }
         }
