@@ -3,6 +3,10 @@ using System.Collections.Generic;
 
 using Grasshopper.Kernel;
 using Rhino.Geometry;
+using System.Drawing;
+using Grasshopper.GUI.Canvas;
+using System.Windows.Forms;
+using Grasshopper.GUI;
 
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
@@ -19,6 +23,30 @@ namespace Beam3D
         {
         }
 
+        //Initialize moments
+        static bool stc = true;
+        static bool sts = false;
+
+        //Method to allow c hanging of variables via GUI (see Component Visual)
+        public static void setStart(string s, bool i)
+        {
+            if (s == "Run")
+            {
+                stc = i;
+            }
+            if (s == "Run Test")
+            {
+                sts = i;
+            }
+            Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
+            Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
+        }
+
+        public override void CreateAttributes()
+        {
+            m_attributes = new Attributes_Custom(this);
+        }
+
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddLineParameter("Lines", "LNS", "Geometry, in form of Lines)", GH_ParamAccess.list);
@@ -26,8 +54,6 @@ namespace Beam3D
             pManager.AddTextParameter("Material properties", "Mat", "Material Properties", GH_ParamAccess.item, "210000,3600,4920000,4920000,79300");
             pManager.AddTextParameter("PointLoads", "PL", "Load given as Vector [N]", GH_ParamAccess.list);
             pManager.AddTextParameter("PointMoment", "PM", "Moment set in a point in [Nm]", GH_ParamAccess.list, "");
-            pManager.AddBooleanParameter("Start calculations", "SC", "Set true to start calculations", GH_ParamAccess.item, false);
-            pManager.AddBooleanParameter("Solver test?", "ST", "Set true to start solver performance test", GH_ParamAccess.item, false);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -46,9 +72,7 @@ namespace Beam3D
             List<string> bdctxt = new List<string>();       //Boundary conditions in string format
             List<string> loadtxt = new List<string>();      //loads in string format
             List<string> momenttxt = new List<string>();    //Moments in string format
-            string mattxt = "";                             //Material in string format
-            bool startCalc = false;
-            bool startTest = false;
+            string mattxt = "";    
 
 
             //Set expected inputs from Indata
@@ -57,34 +81,37 @@ namespace Beam3D
             if (!DA.GetData(2, ref mattxt)) return;         //sets material properties as string
             if (!DA.GetDataList(3, loadtxt)) return;        //sets load as string
             if (!DA.GetDataList(4, momenttxt)) return;      //sets moment as string
-            if (!DA.GetData(5, ref startCalc)) return;
-            if (!DA.GetData(6, ref startTest)) return;
             #endregion
 
-            if (startCalc)
+            //Interpret and set material parameters
+            double E;       //Material Young's modulus, initial value 210000 [MPa]
+            double A;       //Area for each element in same order as geometry, initial value CFS100x100 3600 [mm^2]
+            double Iy;      //Moment of inertia about local y axis, initial value 4.92E6 [mm^4]
+            double Iz;      //Moment of inertia about local z axis, initial value 4.92E6 [mm^4]
+            double J;       //Polar moment of inertia
+            double G;       //Shear modulus, initial value 79300 [mm^4]
+            SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G);
+
+            #region Prepares geometry, boundary conditions and loads for calculation
+            //List all nodes (every node only once), numbering them according to list index
+            List<Point3d> points = CreatePointList(geometry);
+
+
+            //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
+            List<int> bdc_value = CreateBDCList(bdctxt, points);
+
+
+            //Interpreting input load (text) and creating load list (do uble)
+            List<double> load = CreateLoadList(loadtxt, momenttxt, points);
+            #endregion
+
+            Vector<double> def_tot;
+            Vector<double> reactions;
+            List<double> internalStresses;
+            List<double> internalStrains;
+
+            if (stc)
             {
-                //Interpret and set material parameters
-                double E;       //Material Young's modulus, initial value 210000 [MPa]
-                double A;       //Area for each element in same order as geometry, initial value CFS100x100 3600 [mm^2]
-                double Iy;      //Moment of inertia about local y axis, initial value 4.92E6 [mm^4]
-                double Iz;      //Moment of inertia about local z axis, initial value 4.92E6 [mm^4]
-                double J;       //Polar moment of inertia
-                double G;       //Shear modulus, initial value 79300 [mm^4]
-                SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G);
-                
-                #region Prepares geometry, boundary conditions and loads for calculation
-                //List all nodes (every node only once), numbering them according to list index
-                List<Point3d> points = CreatePointList(geometry);
-
-
-                //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
-                List<int> bdc_value = CreateBDCList(bdctxt, points);
-
-
-                //Interpreting input load (text) and creating load list (do uble)
-                List<double> load = CreateLoadList(loadtxt, momenttxt, points);
-                #endregion
-
                 #region Create global and reduced stiffness matrix
                 //Create global stiffness matrix
                 Matrix<double> K_tot = CreateGlobalStiffnessMatrix(geometry, points, E, A, Iy, Iz, J, G);
@@ -96,7 +123,7 @@ namespace Beam3D
                 #endregion
 
                 #region Solver Performance Test
-                if (startTest)
+                if (sts)
                 {
                     string output_time = "";
                     string performanceResult = "=================START OF TEST=================" + Environment.NewLine;
@@ -143,32 +170,40 @@ namespace Beam3D
                     {
                         System.IO.File.WriteAllText(@"\solverTest.txt", output_time);
                     }
-                    
+
                 }
                 #endregion
-                
+
                 #region Calculate deformations, reaction forces and internal strains and stresses
                 //Calculate deformations
                 Vector<double> def_reduced;
                 def_reduced = K_red.Cholesky().Solve(load_red);
 
                 //Add the clamped dofs (= 0) to the deformations list
-                Vector<double> def_tot = RestoreTotalDeformationVector(def_reduced, bdc_value);
+                def_tot = RestoreTotalDeformationVector(def_reduced, bdc_value);
 
                 //Calculate the reaction forces from the deformations
-                Vector<double> reactions = K_tot.Multiply(def_tot);
-                
+                reactions = K_tot.Multiply(def_tot);
+
                 //Calculate the internal strains and stresses in each member
-                List<double> internalStresses;
-                List<double> internalStrains;
                 CalculateInternalStrainsAndStresses(def_tot, points, E, geometry, out internalStresses, out internalStrains);
                 #endregion
-
-                DA.SetDataList(0, def_tot);
-                DA.SetDataList(1, reactions);
-                DA.SetDataList(2, internalStresses);
-                DA.SetDataList(3, internalStrains);
             }
+            else
+            {
+                def_tot = Vector<double>.Build.Dense(points.Count*6);
+                reactions = def_tot;
+
+                internalStresses = new List<double>(geometry.Count);
+                internalStresses.AddRange(new double[geometry.Count]);
+                internalStrains = internalStresses;
+            }
+            DA.SetDataList(0, def_tot);
+            DA.SetDataList(1, reactions);
+            DA.SetDataList(2, internalStresses);
+            DA.SetDataList(3, internalStrains);
+
+
         } //End of main component
 
         private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> points, double E, List<Line> geometry, out List<double> internalStresses, out List<double> internalStrains)
@@ -716,6 +751,100 @@ namespace Beam3D
         public override Guid ComponentGuid
         {
             get { return new Guid("d636ebc9-0d19-44d5-a3ad-cec704b82323"); }
+        }
+
+
+        /// Component Visual//
+        public class Attributes_Custom : Grasshopper.Kernel.Attributes.GH_ComponentAttributes
+        {
+            public Attributes_Custom(GH_Component owner) : base(owner) { }
+            protected override void Layout()
+            {
+                base.Layout();
+
+                Rectangle rec0 = GH_Convert.ToRectangle(Bounds);
+
+                rec0.Height += 22;
+
+                Rectangle rec1 = rec0;
+                rec1.X = rec0.Left + 1;
+                rec1.Y = rec0.Bottom - 22;
+                rec1.Width = (rec0.Width) / 3 + 1;
+                rec1.Height = 22;
+                rec1.Inflate(-2, -2);
+
+                Rectangle rec2 = rec1;
+                rec2.X = rec1.Right + 2;
+                
+                Bounds = rec0;
+                ButtonBounds = rec1;
+                ButtonBounds2 = rec2;
+
+            }
+
+            GH_Palette xColor = GH_Palette.Black;
+            GH_Palette yColor = GH_Palette.Grey;
+
+            private Rectangle ButtonBounds { get; set; }
+            private Rectangle ButtonBounds2 { get; set; }
+            private Rectangle ButtonBounds3 { get; set; }
+
+            protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
+            {
+                base.Render(canvas, graphics, channel);
+                if (channel == GH_CanvasChannel.Objects)
+                {
+                    GH_Capsule button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, xColor, "Run", 3, 0);
+                    button.Render(graphics, Selected, false, false);
+                    button.Dispose();
+                }
+                if (channel == GH_CanvasChannel.Objects)
+                {
+                    GH_Capsule button2 = GH_Capsule.CreateTextCapsule(ButtonBounds2, ButtonBounds2, yColor, "Run Test", 2, 0);
+                    button2.Render(graphics, Selected, Owner.Locked, false);
+                    button2.Dispose();
+                }
+            }
+
+            public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    RectangleF rec = ButtonBounds;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("Run");
+                        if (xColor == GH_Palette.Black) { CalcComponent.setStart("Run", true); }
+                        if (xColor == GH_Palette.Grey) { CalcComponent.setStart("Run", false); }
+                        sender.Refresh();
+                        return GH_ObjectResponse.Handled;
+                    }
+                    rec = ButtonBounds2;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("Run Test");
+                        if (yColor == GH_Palette.Black) { CalcComponent.setStart("Run Test", true); }
+                        if (yColor == GH_Palette.Grey) { CalcComponent.setStart("Run Test", false); }
+                        sender.Refresh();
+                        return GH_ObjectResponse.Handled;
+                    }
+                }
+                return base.RespondToMouseDown(sender, e);
+            }
+
+            private void switchColor(string button)
+            {
+                if (button == "Run")
+                {
+                    if (xColor == GH_Palette.Black) { xColor = GH_Palette.Grey; }
+                    else { xColor = GH_Palette.Black; }
+                }
+                else if (button == "Run Test")
+                {
+                    if (yColor == GH_Palette.Black) { yColor = GH_Palette.Grey; }
+                    else { yColor = GH_Palette.Black; }
+                }
+            }
         }
     }
 }

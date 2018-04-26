@@ -18,7 +18,7 @@ namespace Beam3D
                   "Koala", "3D Beam")
         {
         }
-        //Initialize BDCs
+        //Initialize moments
         static int mx = 0;
         static int my = 0;
         static int mz = 0;
