@@ -24,19 +24,19 @@ namespace Beam3D
         }
 
         //Initialize moments
-        static bool stc = true;
-        static bool sts = false;
+        static bool startCalc = true;
+        static bool startTest = false;
 
         //Method to allow c hanging of variables via GUI (see Component Visual)
         public static void setStart(string s, bool i)
         {
             if (s == "Run")
             {
-                stc = i;
+                startCalc = i;
             }
             if (s == "Run Test")
             {
-                sts = i;
+                startTest = i;
             }
             Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
             Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
@@ -110,7 +110,7 @@ namespace Beam3D
             List<double> internalStresses;
             List<double> internalStrains;
 
-            if (stc)
+            if (startCalc)
             {
                 #region Create global and reduced stiffness matrix
                 //Create global stiffness matrix
@@ -123,7 +123,7 @@ namespace Beam3D
                 #endregion
 
                 #region Solver Performance Test
-                if (sts)
+                if (startTest)
                 {
                     string output_time = "";
                     string performanceResult = "=================START OF TEST=================" + Environment.NewLine;
