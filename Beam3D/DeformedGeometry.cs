@@ -21,7 +21,7 @@ namespace Beam3D
         }
 
         //Initialize startcondition
-        static int st = 1;
+        static int startDef = 1;
 
 
         //Method to allow c hanging of variables via GUI (see Component Visual)
@@ -29,7 +29,7 @@ namespace Beam3D
         {
             if (s == "Run")
             {
-                st = i;
+                startDef = i;
             }
             Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
             Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
@@ -54,7 +54,7 @@ namespace Beam3D
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            if (st == 1)
+            if (startDef == 1)
             {
                 #region Fetch input
                 //Expected inputs and outputs
@@ -76,6 +76,8 @@ namespace Beam3D
 
                 int index = 0;
                 //loops through all points and scales x-, y- and z-dir
+
+                //u(x) = Na, N = shape func, a = nodal values (dof) 
                 foreach (Point3d point in points)
                 {
                     //fetch global x,y,z placement of point
