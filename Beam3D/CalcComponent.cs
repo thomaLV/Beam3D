@@ -114,7 +114,7 @@ namespace Beam3D
             {
                 #region Create global and reduced stiffness matrix
                 //Create global stiffness matrix
-                Matrix<double> K_tot = CreateGlobalStiffnessMatrix(geometry, points, E, A, Iy, Iz, J, G);
+                Matrix<double> K_tot = GlobalStiffnessMatrix(geometry, points, E, A, Iy, Iz, J, G);
 
                 //Create reduced K-matrix and reduced load list (removed free dofs)
                 Matrix<double> K_red;
@@ -479,85 +479,80 @@ namespace Beam3D
             return A;
         }
 
-        private Matrix<double> CreateGlobalStiffnessMatrix(List<Line> geometry, List<Point3d> points, double E, double A, double Iy, double Iz, double J, double G)
+        private void ElementStiffnessMatrix(Line currentLine, double E, double A, double Iy, double Iz, double J, double G, out Point3d p1, out Point3d p2, out Matrix<double> K_elem)
         {
-            int gdofs = points.Count * 6;
-            Matrix<double> K_tot = DenseMatrix.OfArray(new double[gdofs, gdofs]);
+            double L = Math.Round(currentLine.Length, 6);
 
-            foreach (Line currentLine in geometry)
+            p1 = new Point3d(Math.Round(currentLine.From.X, 2), Math.Round(currentLine.From.Y, 2), Math.Round(currentLine.From.Z, 2));
+            p2 = new Point3d(Math.Round(currentLine.To.X, 2), Math.Round(currentLine.To.Y, 2), Math.Round(currentLine.To.Z, 2));
+
+            double alpha = 0;
+
+            double cx = (p2.X - p1.X) / L;
+            double cy = (p2.Y - p1.Y) / L;
+            double cz = (p2.Z - p1.Z) / L;
+            double c1 = Math.Cos(alpha);
+            double s1 = Math.Sin(alpha);
+            double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
+
+            Matrix<double> t;
+
+            if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
             {
-                double L = Math.Round(currentLine.Length, 6);
-
-                Point3d p1 = new Point3d(Math.Round(currentLine.From.X, 2), Math.Round(currentLine.From.Y, 2), Math.Round(currentLine.From.Z, 2));
-                Point3d p2 = new Point3d(Math.Round(currentLine.To.X, 2), Math.Round(currentLine.To.Y, 2), Math.Round(currentLine.To.Z, 2));
-
-                double alpha = 0;
-
-                double cx = (p2.X - p1.X) / L;
-                double cy = (p2.Y - p1.Y) / L;
-                double cz = (p2.Z - p1.Z) / L;
-                double c1 = Math.Cos(alpha);
-                double s1 = Math.Sin(alpha);
-                double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
-
-                Matrix<double> t;
-
-                if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
-                {
-                    t = Matrix<double>.Build.DenseOfArray(new double[,]
-                {
+                t = Matrix<double>.Build.DenseOfArray(new double[,]
+            {
                     {      0, cy,  0},
                     { -cy*c1,  0, s1},
                     {  cy*s1,  0, c1},
-                });
-                }
-                else
-                {
-                    t = Matrix<double>.Build.DenseOfArray(new double[,]
-                {
+            });
+            }
+            else
+            {
+                t = Matrix<double>.Build.DenseOfArray(new double[,]
+            {
                     {                     cx,       cy,                   cz},
                     {(-cx*cy*c1 - cz*s1)/cxz,   cxz*c1,(-cy*cz*c1+cx*s1)/cxz},
                     {   (cx*cy*s1-cz*c1)/cxz,  -cxz*s1, (cy*cz*s1+cx*c1)/cxz},
-                });
-                }
+            });
+            }
 
-                //Variable to building new matrices
-                var bd = Matrix<double>.Build;
+            //Variable to building new matrices
+            var bd = Matrix<double>.Build;
 
-                //Stacking 3x12 matrices on top of each other until T = 12x12 (all other than t is zero)
-                Matrix<double> T1;
-                T1 = t.Append(bd.Dense(3, 9));
-                Matrix<double> T2;
-                T2 = bd.Dense(3, 3).Append(t);
-                T2 = T2.Append(bd.Dense(3, 6));
-                Matrix<double> T3;
-                T3 = bd.Dense(3, 6).Append(t);
-                T3 = T3.Append(bd.Dense(3, 3));
-                Matrix<double> T4;
-                T4 = bd.Dense(3, 9).Append(t);
-                Matrix<double> T;
-                T = T1.Stack(T2);
-                T = T.Stack(T3);
-                T = T.Stack(T4);
+            //Stacking 3x12 matrices on top of each other until T = 12x12 (all other than t is zero)
+            Matrix<double> T1;
+            T1 = t.Append(bd.Dense(3, 9));
+            Matrix<double> T2;
+            T2 = bd.Dense(3, 3).Append(t);
+            T2 = T2.Append(bd.Dense(3, 6));
+            Matrix<double> T3;
+            T3 = bd.Dense(3, 6).Append(t);
+            T3 = T3.Append(bd.Dense(3, 3));
+            Matrix<double> T4;
+            T4 = bd.Dense(3, 9).Append(t);
+            Matrix<double> T;
+            T = T1.Stack(T2);
+            T = T.Stack(T3);
+            T = T.Stack(T4);
 
-                Matrix<double> T_T = T.Transpose();
+            Matrix<double> T_T = T.Transpose();
 
-                double A1 = (E * A) / (L);
+            double A1 = (E * A) / (L);
 
-                double kz1 = (12 * E * Iz) / (L * L * L);
-                double kz2 = (6 * E * Iz) / (L * L);
-                double kz3 = (4 * E * Iz) / L;
-                double kz4 = (2 * E * Iz) / L;
+            double kz1 = (12 * E * Iz) / (L * L * L);
+            double kz2 = (6 * E * Iz) / (L * L);
+            double kz3 = (4 * E * Iz) / L;
+            double kz4 = (2 * E * Iz) / L;
 
-                double ky1 = (12 * E * Iy) / (L * L * L);
-                double ky2 = (6 * E * Iy) / (L * L);
-                double ky3 = (4 * E * Iy) / L;
-                double ky4 = (2 * E * Iy) / L;
+            double ky1 = (12 * E * Iy) / (L * L * L);
+            double ky2 = (6 * E * Iy) / (L * L);
+            double ky3 = (4 * E * Iy) / L;
+            double ky4 = (2 * E * Iy) / L;
 
-                double C1 = (G * J) / L;
+            double C1 = (G * J) / L;
 
-                Matrix<double> K_elem = DenseMatrix.OfArray(new double[,]
-                {
+            K_elem = DenseMatrix.OfArray(new double[,]
+            {
                     { A1,    0,    0,    0,    0,    0,  -A1,    0,    0,    0,    0,    0 },
                     {  0,  kz1,    0,    0,    0,  kz2,    0, -kz1,    0,    0,    0,  kz2 },
                     {  0,    0,  ky1,    0, -ky2,    0,    0,    0, -ky1,    0, -ky2,    0 },
@@ -570,10 +565,23 @@ namespace Beam3D
                     {  0,    0,    0,  -C1,    0,    0,    0,    0,    0,   C1,    0,    0 },
                     {  0,    0, -ky2,    0,  ky4,    0,    0,    0,  ky2,    0,  ky3,    0 },
                     {  0,  kz2,    0,    0,    0,  kz4,    0, -kz2,    0,    0,    0,  kz3 },
-                });
+            });
 
-                K_elem = K_elem.Multiply(T);
-                K_elem = T_T.Multiply(K_elem);
+            K_elem = K_elem.Multiply(T);
+            K_elem = T_T.Multiply(K_elem);
+        }
+
+        private Matrix<double> GlobalStiffnessMatrix(List<Line> geometry, List<Point3d> points, double E, double A, double Iy, double Iz, double J, double G)
+        {
+            int gdofs = points.Count * 6;
+            Matrix<double> K_tot = DenseMatrix.OfArray(new double[gdofs, gdofs]);
+
+            foreach (Line currentLine in geometry)
+            {
+                Matrix<double> K_elem;
+                Point3d p1;
+                Point3d p2;
+                ElementStiffnessMatrix(currentLine, E, A, Iy, Iz, J, G, out p1, out p2, out K_elem);
 
                 int node1 = points.IndexOf(p1);
                 int node2 = points.IndexOf(p2);
