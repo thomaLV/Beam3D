@@ -8,6 +8,8 @@ using Grasshopper.GUI.Canvas;
 using System.Windows.Forms;
 using Grasshopper.GUI;
 
+using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.LinearAlgebra.Double;
 
 namespace Beam3D
 {
@@ -100,6 +102,16 @@ namespace Beam3D
                 }
                 #endregion
 
+                int p;
+                if (p2)
+                {
+                     p = 2;
+                }
+                else
+                {
+                    p = 3;
+                }
+
                 #region Create geometry
                 //creates deformed geometry based on initial geometry placement
                 foreach (Line line in geometry)
@@ -111,8 +123,8 @@ namespace Beam3D
                     //u(x) = Na, N = shape func, a = nodal values (dof) 
 
                     //creates new curve(!) based on scaled deformation of said points
-                    defGeometry.Add(CurveShapeFunction(defPoints[i1], defPoints[i2]));
-
+                    defGeometry.Add(CurveByShape(defPoints[i1], defPoints[i2], p));
+                    //defGeometry.Add(new Line(defPoints[i1], defPoints[i2]));
                 }
                 #endregion
 
@@ -122,10 +134,48 @@ namespace Beam3D
             }
         }   //End of main program
 
-        private Curve CurveShapeFunction(Point3d point3d1, Point3d point3d2)
+        private Curve CurveByShape(Point3d n1, Point3d n2, int p)
         {
+            //http://developer.rhino3d.com/samples/rhinocommon/add-nurbs-curve/
+            Curve c = new NurbsCurve(p, p);
+            c.SetStartPoint(n1);
+            c.SetEndPoint(n2);
 
+            var N = Shapefunctions(n1, n2);
 
+            return c;
+            throw new NotImplementedException();
+        }
+
+        private object Shapefunctions(Point3d n1, Point3d n2)
+        {
+            double x = 0;
+            double L = n1.DistanceTo(n2);
+            double N1 = -1 / L * (x - L);
+            double N2 = x / L;
+            double N3 = 1 - 3 * Math.Pow(x,2) / Math.Pow(L, 2) + 2 * Math.Pow(x, 3) / Math.Pow(L,3);
+            double N4 = x * (1 - 2 * x / L + Math.Pow(x, 2) / Math.Pow(L, 2));
+            double N5 = Math.Pow(x, 2) / Math.Pow(L, 2) * (3 - 2 * x / L);
+            double N6 = Math.Pow(x, 2) / L * (x / L - 1);
+
+            Matrix<double> N = Matrix<double>.Build.DenseOfArray(new double[,] {
+                { N1, 0, 0,  0,  0,  0, N2, 0,  0,  0,  0,  0},
+                { 0, N3, 0,  0,  0, N4, 0, N5, 0,  0,  0, N6 },
+                { 0, 0, N3, 0, -N4, 0, 0, 0, N5, 0, -N6, 0},
+                { 0, 0, 0, N1, 0, 0, 0, 0, 0, N2, 0, 0} });
+
+            double dN1 = -1 / L;
+            double dN2 = 1 / L;
+            double dN3 = -6 * x / Math.Pow(L, 2) + 6 * Math.Pow(x, 2) / Math.Pow(L,3);
+            double dN4 = 1 - 4 * x / L + 3 * Math.Pow(x, 2) / Math.Pow(L, 2);
+            double dN5 = 6 * x / Math.Pow(L, 2) - 6 * Math.Pow(x, 2) / Math.Pow(L,3);
+            double dN6 = 3 * Math.Pow(x, 2) / Math.Pow(L, 2) - 2 * x / L;
+
+            Matrix<double> dN = Matrix<double>.Build.DenseOfArray(new double[,] {
+            { dN1, 0, 0, 0, 0, 0, dN2, 0, 0, 0, 0, 0},
+            { 0, dN3, 0, 0, 0, dN4, 0, dN5, 0, 0, 0, dN6 },
+            { 0, 0, dN3, 0, -dN4, 0, 0, 0, dN5, 0, -dN6, 0},
+            { 0, 0, 0, dN1, 0, 0, 0, 0, 0, dN2, 0, 0} });
 
             throw new NotImplementedException();
         }
