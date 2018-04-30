@@ -105,16 +105,46 @@ namespace Beam3D
                 //    p = 3;
                 //}
 
+                #region Create geometry (linear)
                 if (n == 1)
                 {
+                    int index = 0;
+                    //loops through all points and scales x-, y- and z-dir
+
+                    //u(x) = Na, N = shape func, a = nodal values (dof) 
+                    foreach (Point3d point in points)
+                    {
+                        //fetch global x,y,z placement of point
+                        double x = point.X;
+                        double y = point.Y;
+                        double z = point.Z;
+
+                        //scales x and z according to input Scale
+                        defPoints.Add(new Point3d(x + scale * def[index], y + scale * def[index + 1], z + scale * def[index + 2]));
+                        index += 6;
+                    }
+
+                    //creates deformed geometry based on initial geometry placement
+                    foreach (Line line in geometry)
+                    {
+                        //fetches index of original start and endpoint
+                        int i1 = points.IndexOf(line.From);
+                        int i2 = points.IndexOf(line.To);
+
+                        //creates new line based on scaled deformation of said points
+                        var tempL = new Line(defPoints[i1], defPoints[i2]);
+                        defGeometry.Add(tempL.ToNurbsCurve());
+                    }
+
+
                     //Set output data
                     DA.SetDataList(0, defGeometry);
+                    return;
                 }
-
+                #endregion
+                
+                #region Create geometry
                 Matrix<double> N, dN;
-
-
-                #region Calculate deformed geometry
                 foreach (Line line in geometry)
                 {
                     //fetches index of original start and endpoint
@@ -182,7 +212,6 @@ namespace Beam3D
                 }
                 #endregion
                 
-
                 //Set output data
                 DA.SetDataList(0, defGeometry);
             }
