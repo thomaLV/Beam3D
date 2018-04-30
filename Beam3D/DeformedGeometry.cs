@@ -9,8 +9,6 @@ using System.Windows.Forms;
 using Grasshopper.GUI;
 
 using MathNet.Numerics.LinearAlgebra;
-using MathNet.Numerics.LinearAlgebra.Double;
-using System.Diagnostics;
 
 namespace Beam3D
 {
@@ -160,7 +158,6 @@ namespace Beam3D
                         u[j + 6] = def[i2*6 + j];
                     }
                     u = scale * u;
-                    Debug.WriteLine(u.ToString());
 
                     //interpolate points between line.From and line.To
                     List<Point3d> tempP;
@@ -173,23 +170,16 @@ namespace Beam3D
                     {
                         x[j] = j * L / n;
                     }
-                    Debug.WriteLine(x.ToString());
 
 
                     //Calculate 6 dofs for all new elements using shape functions (n+1 elements)
                     Matrix<double> disp = m.Dense(n + 1, 4);
                     Matrix<double> rot = m.Dense(n + 1, 4);
-                    Debug.WriteLine(disp.ToString());
 
                     for (int j = 0; j < n + 1; j++)          //x are points inbetween (?)
                     {
                         Shapefunctions(L, x[j], out N, out dN);
-                        //Debug.WriteLine(N.ToString());
-                        //Debug.WriteLine(u.ToString());
-                        //Debug.WriteLine(N.Multiply(u).ToString());
                         disp.SetRow(j, N.Multiply(u));
-                        Debug.WriteLine(disp.ToString());
-
                         //rot.SetRow(j, dN.Multiply(u));
                     }
 
@@ -198,14 +188,11 @@ namespace Beam3D
                     {
                         //original xyz                        
                         var tP = tempP[j];
-                        Debug.WriteLine("X: " + tP.X + ", Y: " + tP.Y + ", Z: " + tP.Z);
-                        Debug.WriteLine(disp.ToString());
 
                         //add displacement
                         tP.X += disp[j, 0];
                         tP.Y += disp[j, 1];
                         tP.Z += disp[j, 2];
-                        Debug.WriteLine("X: " + tP.X + ", Y: " + tP.Y + ", Z: " + tP.Z + Environment.NewLine);
 
                         //replace previous xyz with displaced xyz
                         tempP[j] = tP;
