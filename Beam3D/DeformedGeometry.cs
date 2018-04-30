@@ -28,7 +28,7 @@ namespace Beam3D
         static bool p3 = false;
 
 
-        //Method to allow c hanging of variables via GUI (see Component Visual)
+        //Method to allow C# hanging of variables via GUI (see Component Visual)
         public static void setToggles(string s, bool i)
         {
             if (s == "Run")
@@ -57,11 +57,12 @@ namespace Beam3D
             pManager.AddNumberParameter("Deformation", "Def", "Deformations from 3DBeamCalc", GH_ParamAccess.list);
             pManager.AddLineParameter("Geometry", "G", "Input Geometry (Line format)", GH_ParamAccess.list);
             pManager.AddNumberParameter("Scale", "S", "The Scale Factor for Deformation", GH_ParamAccess.item, 1000);
+            pManager.AddIntegerParameter("Elements", "n", "No. of Elements", GH_ParamAccess.item, 4);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddLineParameter("Deformed Geometry", "Def.G.", "Deformed Geometry as List of Lines", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Deformed Geometry", "Def.G.", "Deformed Geometry as List of Lines", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -70,87 +71,126 @@ namespace Beam3D
             {
                 #region Fetch input
                 //Expected inputs and outputs
-                List<double> def = new List<double>();
-                List<Line> geometry = new List<Line>();
-                double scale = 1000;
-                List<Curve> defGeometry = new List<Curve>();
-                List<Point3d> defPoints = new List<Point3d>();
+                List<double> def = new List<double>();          //input doubles of displacements/rotations
+                List<Line> geometry = new List<Line>();         //input list of original node coordinates
+                double scale = 1000;                            //input deformation scale (default == 1000)                
+                int n = 4;                                      //input no. of elements (default == 4)
+
+                List<Curve> defGeometry = new List<Curve>();    //output deformed geometry
+                List<Point3d> defPoints = new List<Point3d>();  //output deformed element nodes (remove?)
+
+                //number of divisions(?)
+
+                var m = Matrix<double>.Build;
+                var v = Vector<double>.Build;
 
                 //Set expected inputs from Indata
                 if (!DA.GetDataList(0, def)) return;
                 if (!DA.GetDataList(1, geometry)) return;
                 if (!DA.GetData(2, ref scale)) return;
+                if (!DA.GetData(3, ref n)) return;
                 #endregion
 
-                #region Scale deformations
                 //List all nodes (every node only once), numbering them according to list index
                 List<Point3d> points = CreatePointList(geometry);
 
-                int index = 0;
-                //loops through all points and scales x-, y- and z-dir
+                ////polynomial order (should be 1, 2??)
+                //int p;
+                //if (p2)
+                //{
+                //     p = 2;
+                //}
+                //else
+                //{
+                //    p = 3;
+                //}
 
-                foreach (Point3d point in points)
+                if (n == 1)
                 {
-                    //fetch global x,y,z placement of point
-                    double x = point.X;
-                    double y = point.Y;
-                    double z = point.Z;
-
-                    //scales x and z according to input Scale
-                    defPoints.Add(new Point3d(x + scale * def[index], y + scale * def[index + 1], z + scale * def[index + 2]));
-                    index += 6;
-                }
-                #endregion
-
-                int p;
-                if (p2)
-                {
-                     p = 2;
-                }
-                else
-                {
-                    p = 3;
+                    //Set output data
+                    DA.SetDataList(0, defGeometry);
                 }
 
-                #region Create geometry
-                //creates deformed geometry based on initial geometry placement
+                Matrix<double> N, dN;
+
+
+                #region Calculate deformed geometry
                 foreach (Line line in geometry)
                 {
                     //fetches index of original start and endpoint
                     int i1 = points.IndexOf(line.From);
                     int i2 = points.IndexOf(line.To);
 
-                    //u(x) = Na, N = shape func, a = nodal values (dof) 
+                    //create 12x1 deformation vector for element (6dofs), scaled and populated with existing deformations
+                    var u = Vector<double>.Build.Dense(12);
+                    for (int j = 0; j < 6; j++)
+                    {
+                        u[j    ] = def[i1 + j];
+                        u[j + 6] = def[i2 + j];
+                    }
+                    u = scale * u;
 
-                    //creates new curve(!) based on scaled deformation of said points
-                    defGeometry.Add(CurveByShape(defPoints[i1], defPoints[i2], p));
-                    //defGeometry.Add(new Line(defPoints[i1], defPoints[i2]));
+                    //interpolate points between line.From and line.To
+                    List<Point3d> tempP = new List<Point3d>(n + 1);
+                    var tPm = new Point3d(); var tPse = new Point3d(); var tPla = new Point3d();
+                    tPm.Interpolate(line.From, line.To, 0.5);
+                    tempP.Add(line.From);
+                    tPse.Interpolate(line.From, tPm, 0.5);
+                    tPla.Interpolate(tPm, line.To, 0.5);
+                    tempP.Add(tPse);
+                    tempP.Add(tPm);
+                    tempP.Add(tPla);
+                    tempP.Add(line.To);
+
+
+                    double L = points[i1].DistanceTo(points[i2]);   //L is distance from startnode to endnode
+                    var x = v.Dense(n + 1);                       //maybe this should be projected x instead???
+                    for (int j = 0; j < n + 1; j++)
+                    {
+                        x[j] = j * L / n;
+                    }
+
+
+                    //Calculate 6 dofs for all new elements using shape functions (n+1 elements)
+                    Matrix<double> disp = m.Dense(n+1, 4);
+                    Matrix<double> rot = m.Dense(n+1, 4);
+                    for (int j = 0; j < n+1; j++)          //x are points inbetween (?)
+                    {
+                        Shapefunctions(L, x[j], out N, out dN);
+                        disp.SetRow(j, N.Multiply(u));
+//                        rot.SetRow(j, dN.Multiply(u));
+                    }
+
+                    //Calculate new nodal points
+                    for (int j = 0; j < n+1; j++)
+                    {
+                        //original xyz                        
+                        var tP = tempP[j];
+
+                        //add displacement
+                        tP.X += disp[j, 1];
+                        tP.Y += disp[j, 2];
+                        tP.Z += disp[j, 3];
+
+                        //replace previous xyz with displaced xyz
+                        tempP[j] = tP;
+                    }
+
+                    //Create Nurbscurve based on new nodal points
+                    NurbsCurve nc = NurbsCurve.Create(false, 3, tempP);
+                    defGeometry.Add(nc);
                 }
                 #endregion
-
+                
 
                 //Set output data
                 DA.SetDataList(0, defGeometry);
             }
         }   //End of main program
 
-        private Curve CurveByShape(Point3d n1, Point3d n2, int p)
+
+        private void Shapefunctions(double L, double x, out Matrix<double> N, out Matrix<double> dN)
         {
-            //http://developer.rhino3d.com/samples/rhinocommon/add-nurbs-curve/
-            Curve c = new NurbsCurve(p, p);
-            c.SetStartPoint(n1);
-            c.SetEndPoint(n2);
-
-            var N = Shapefunctions(n1, n2);
-
-            return c;
-            throw new NotImplementedException();
-        }
-
-        private object Shapefunctions(Point3d n1, Point3d n2)
-        {
-            double x = 0;
-            double L = n1.DistanceTo(n2);
             double N1 = -1 / L * (x - L);
             double N2 = x / L;
             double N3 = 1 - 3 * Math.Pow(x,2) / Math.Pow(L, 2) + 2 * Math.Pow(x, 3) / Math.Pow(L,3);
@@ -158,7 +198,7 @@ namespace Beam3D
             double N5 = Math.Pow(x, 2) / Math.Pow(L, 2) * (3 - 2 * x / L);
             double N6 = Math.Pow(x, 2) / L * (x / L - 1);
 
-            Matrix<double> N = Matrix<double>.Build.DenseOfArray(new double[,] {
+            N = Matrix<double>.Build.DenseOfArray(new double[,] {
                 { N1, 0, 0,  0,  0,  0, N2, 0,  0,  0,  0,  0},
                 { 0, N3, 0,  0,  0, N4, 0, N5, 0,  0,  0, N6 },
                 { 0, 0, N3, 0, -N4, 0, 0, 0, N5, 0, -N6, 0},
@@ -171,13 +211,11 @@ namespace Beam3D
             double dN5 = 6 * x / Math.Pow(L, 2) - 6 * Math.Pow(x, 2) / Math.Pow(L,3);
             double dN6 = 3 * Math.Pow(x, 2) / Math.Pow(L, 2) - 2 * x / L;
 
-            Matrix<double> dN = Matrix<double>.Build.DenseOfArray(new double[,] {
+            dN = Matrix<double>.Build.DenseOfArray(new double[,] {
             { dN1, 0, 0, 0, 0, 0, dN2, 0, 0, 0, 0, 0},
             { 0, dN3, 0, 0, 0, dN4, 0, dN5, 0, 0, 0, dN6 },
             { 0, 0, dN3, 0, -dN4, 0, 0, 0, dN5, 0, -dN6, 0},
             { 0, 0, 0, dN1, 0, 0, 0, 0, 0, dN2, 0, 0} });
-
-            throw new NotImplementedException();
         }
 
         private List<Point3d> CreatePointList(List<Line> geometry)
