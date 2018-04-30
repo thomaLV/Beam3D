@@ -173,13 +173,13 @@ namespace Beam3D
                     {
                         x[j] = j * L / n;
                     }
-                    //Debug.WriteLine(x.ToString());
-                    
+                    Debug.WriteLine(x.ToString());
+
 
                     //Calculate 6 dofs for all new elements using shape functions (n+1 elements)
                     Matrix<double> disp = m.Dense(n + 1, 4);
                     Matrix<double> rot = m.Dense(n + 1, 4);
-                    //Debug.WriteLine(disp.ToString());
+                    Debug.WriteLine(disp.ToString());
 
                     for (int j = 0; j < n + 1; j++)          //x are points inbetween (?)
                     {
@@ -188,7 +188,7 @@ namespace Beam3D
                         //Debug.WriteLine(u.ToString());
                         //Debug.WriteLine(N.Multiply(u).ToString());
                         disp.SetRow(j, N.Multiply(u));
-                        //Debug.WriteLine(disp.ToString());
+                        Debug.WriteLine(disp.ToString());
 
                         //rot.SetRow(j, dN.Multiply(u));
                     }
@@ -198,14 +198,14 @@ namespace Beam3D
                     {
                         //original xyz                        
                         var tP = tempP[j];
-                        //Debug.WriteLine("X: " + tP.X + ", Y: " + tP.Y + ", Z: " + tP.Z);
-                        //Debug.WriteLine(disp.ToString());
+                        Debug.WriteLine("X: " + tP.X + ", Y: " + tP.Y + ", Z: " + tP.Z);
+                        Debug.WriteLine(disp.ToString());
 
                         //add displacement
                         tP.X += disp[j, 0];
                         tP.Y += disp[j, 1];
                         tP.Z += disp[j, 2];
-                        //Debug.WriteLine("X: " + tP.X + ", Y: " + tP.Y + ", Z: " + tP.Z + Environment.NewLine);
+                        Debug.WriteLine("X: " + tP.X + ", Y: " + tP.Y + ", Z: " + tP.Z + Environment.NewLine);
 
                         //replace previous xyz with displaced xyz
                         tempP[j] = tP;
@@ -225,14 +225,25 @@ namespace Beam3D
         private void InterpolatePoints(Line line, int n, out List<Point3d> tempP)
         {
             tempP = new List<Point3d>(n+1);
-            tempP.Add(line.From);
-            for (double i = 1 / (double)n; i < 1; i += 1 / (double)n)
+            double[] t = LinSpace(0, 1, n + 1);
+            for (int i = 0; i < t.Length; i++)
             {
                 var tPm = new Point3d();
-                tPm.Interpolate(line.From, line.To, i);
+                tPm.Interpolate(line.From, line.To, t[i]);
                 tempP.Add(tPm);
             }
-            tempP.Add(line.To);
+        }
+
+        private static double[] LinSpace(double x1, double x2, int n)
+        {
+            //Generate a 1-D array of linearly spaced values
+            double step = (x2 - x1) / (n - 1);
+            double[] y = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                y[i] = x1 + step * i;
+            }
+            return y;
         }
 
         private void Shapefunctions(double L, double x, out Matrix<double> N, out Matrix<double> dN)
