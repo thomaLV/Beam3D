@@ -78,8 +78,6 @@ namespace Beam3D
                 List<Curve> defGeometry = new List<Curve>();    //output deformed geometry
                 List<Point3d> defPoints = new List<Point3d>();  //output deformed element nodes (remove?)
 
-                //number of divisions(?)
-
                 var m = Matrix<double>.Build;
                 var v = Vector<double>.Build;
 
@@ -93,16 +91,6 @@ namespace Beam3D
                 //List all nodes (every node only once), numbering them according to list index
                 List<Point3d> points = CreatePointList(geometry);
 
-                ////polynomial order (should be 1, 2??)
-                //int p;
-                //if (p2)
-                //{
-                //     p = 2;
-                //}
-                //else
-                //{
-                //    p = 3;
-                //}
 
                 #region Create geometry (linear)
                 if (n == 1)
@@ -138,7 +126,7 @@ namespace Beam3D
 
                     //Set output data
                     DA.SetDataList(0, defGeometry);
-                    return;
+                    return; //return to grasshopper since solved linearly
                 }
                 #endregion
 
@@ -201,11 +189,10 @@ namespace Beam3D
                     //Create Nurbscurve based on new nodal points
                     NurbsCurve nc = NurbsCurve.Create(false, n, tempP);
                     defGeometry.Add(nc);
-                }
-                #endregion
-
+                }                    
                 //Set output data
                 DA.SetDataList(0, defGeometry);
+                #endregion
             }
         }   //End of main program
 
