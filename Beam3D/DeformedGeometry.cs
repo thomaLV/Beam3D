@@ -10,6 +10,7 @@ using Grasshopper.GUI;
 
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
+using System.Diagnostics;
 
 namespace Beam3D
 {
@@ -142,7 +143,7 @@ namespace Beam3D
                     return;
                 }
                 #endregion
-                
+
                 #region Create geometry
                 Matrix<double> N, dN;
                 foreach (Line line in geometry)
@@ -155,22 +156,15 @@ namespace Beam3D
                     var u = Vector<double>.Build.Dense(12);
                     for (int j = 0; j < 6; j++)
                     {
-                        u[j    ] = def[i1 + j];
-                        u[j + 6] = def[i2 + j];
+                        u[j] = def[i1*6 + j];
+                        u[j + 6] = def[i2*6 + j];
                     }
                     u = scale * u;
+                    Debug.WriteLine(u.ToString());
 
                     //interpolate points between line.From and line.To
-                    List<Point3d> tempP = new List<Point3d>(n + 1);
-                    var tPm = new Point3d(); var tPse = new Point3d(); var tPla = new Point3d();
-                    tPm.Interpolate(line.From, line.To, 0.5);
-                    tempP.Add(line.From);
-                    tPse.Interpolate(line.From, tPm, 0.5);
-                    tPla.Interpolate(tPm, line.To, 0.5);
-                    tempP.Add(tPse);
-                    tempP.Add(tPm);
-                    tempP.Add(tPla);
-                    tempP.Add(line.To);
+                    List<Point3d> tempP;
+                    InterpolatePoints(line, n, out tempP);
 
 
                     double L = points[i1].DistanceTo(points[i2]);   //L is distance from startnode to endnode
@@ -179,44 +173,67 @@ namespace Beam3D
                     {
                         x[j] = j * L / n;
                     }
-
+                    //Debug.WriteLine(x.ToString());
+                    
 
                     //Calculate 6 dofs for all new elements using shape functions (n+1 elements)
-                    Matrix<double> disp = m.Dense(n+1, 4);
-                    Matrix<double> rot = m.Dense(n+1, 4);
-                    for (int j = 0; j < n+1; j++)          //x are points inbetween (?)
+                    Matrix<double> disp = m.Dense(n + 1, 4);
+                    Matrix<double> rot = m.Dense(n + 1, 4);
+                    //Debug.WriteLine(disp.ToString());
+
+                    for (int j = 0; j < n + 1; j++)          //x are points inbetween (?)
                     {
                         Shapefunctions(L, x[j], out N, out dN);
+                        //Debug.WriteLine(N.ToString());
+                        //Debug.WriteLine(u.ToString());
+                        //Debug.WriteLine(N.Multiply(u).ToString());
                         disp.SetRow(j, N.Multiply(u));
-//                        rot.SetRow(j, dN.Multiply(u));
+                        //Debug.WriteLine(disp.ToString());
+
+                        //rot.SetRow(j, dN.Multiply(u));
                     }
 
                     //Calculate new nodal points
-                    for (int j = 0; j < n+1; j++)
+                    for (int j = 0; j < n + 1; j++)
                     {
                         //original xyz                        
                         var tP = tempP[j];
+                        //Debug.WriteLine("X: " + tP.X + ", Y: " + tP.Y + ", Z: " + tP.Z);
+                        //Debug.WriteLine(disp.ToString());
 
                         //add displacement
-                        tP.X += disp[j, 1];
-                        tP.Y += disp[j, 2];
-                        tP.Z += disp[j, 3];
+                        tP.X += disp[j, 0];
+                        tP.Y += disp[j, 1];
+                        tP.Z += disp[j, 2];
+                        //Debug.WriteLine("X: " + tP.X + ", Y: " + tP.Y + ", Z: " + tP.Z + Environment.NewLine);
 
                         //replace previous xyz with displaced xyz
                         tempP[j] = tP;
                     }
 
                     //Create Nurbscurve based on new nodal points
-                    NurbsCurve nc = NurbsCurve.Create(false, 3, tempP);
+                    NurbsCurve nc = NurbsCurve.Create(false, n, tempP);
                     defGeometry.Add(nc);
                 }
                 #endregion
-                
+
                 //Set output data
                 DA.SetDataList(0, defGeometry);
             }
         }   //End of main program
 
+        private void InterpolatePoints(Line line, int n, out List<Point3d> tempP)
+        {
+            tempP = new List<Point3d>(n+1);
+            tempP.Add(line.From);
+            for (double i = 1 / (double)n; i < 1; i += 1 / (double)n)
+            {
+                var tPm = new Point3d();
+                tPm.Interpolate(line.From, line.To, i);
+                tempP.Add(tPm);
+            }
+            tempP.Add(line.To);
+        }
 
         private void Shapefunctions(double L, double x, out Matrix<double> N, out Matrix<double> dN)
         {
