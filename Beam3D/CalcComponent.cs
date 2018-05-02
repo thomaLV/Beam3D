@@ -23,14 +23,9 @@ namespace Beam3D
         {
         }
 
-        MatrixBuilder<double> m = Matrix<double>.Build;
-        VectorBuilder<double> v = Vector<double>.Build;
-
-
         //Initialize moments
         static bool startCalc = true;
         static bool startTest = false;
-
 
         //Method to allow c hanging of variables via GUI (see Component Visual)
         public static void setStart(string s, bool i)
@@ -77,7 +72,7 @@ namespace Beam3D
             List<string> bdctxt = new List<string>();       //Boundary conditions in string format
             List<string> loadtxt = new List<string>();      //loads in string format
             List<string> momenttxt = new List<string>();    //Moments in string format
-            string mattxt = "";
+            string mattxt = "";    
 
 
             //Set expected inputs from Indata
@@ -196,7 +191,7 @@ namespace Beam3D
             }
             else
             {
-                def_tot = v.Dense(points.Count * 6);
+                def_tot = Vector<double>.Build.Dense(points.Count*6);
                 reactions = def_tot;
 
                 internalStresses = new List<double>(geometry.Count);
@@ -249,7 +244,7 @@ namespace Beam3D
 
         private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, List<int> bdc_value)
         {
-            Vector<double> def = v.Dense(bdc_value.Count);
+            Vector<double> def = Vector<double>.Build.Dense(bdc_value.Count);
             for (int i = 0, j = 0; i < bdc_value.Count; i++)
             {
                 if (bdc_value[i] == 1)
@@ -263,7 +258,7 @@ namespace Beam3D
 
         private void CreateReducedGlobalStiffnessMatrix(List<int> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
         {
-            K_red = m.DenseOfMatrix(K);
+            K_red = Matrix<double>.Build.DenseOfMatrix(K);
             List<double> load_redu = new List<double>(load);
             for (int i = 0, j = 0; i < load.Count; i++)
             {
@@ -275,7 +270,7 @@ namespace Beam3D
                     j++;
                 }
             }
-            load_red = v.DenseOfEnumerable(load_redu);
+            load_red = Vector<double>.Build.DenseOfEnumerable(load_redu);
         }
 
         private static bool IsDiagonalPositive(Matrix<double> A)
@@ -304,12 +299,12 @@ namespace Beam3D
             TrySolve(K_red, load_red, out time);
             output_time += "Dense, unrounded K_red: " + Environment.NewLine + time + Environment.NewLine;
 
-            K_red = m.SparseOfMatrix(K_red);
+            K_red = Matrix<double>.Build.SparseOfMatrix(K_red);
             TrySolve(K_red, load_red, out time);
             output_time += "Sparse, unrounded K_red: " + Environment.NewLine + time + Environment.NewLine;
 
             //Rounded
-            K_red = m.DenseOfMatrix(K_red);
+            K_red = Matrix<double>.Build.DenseOfMatrix(K_red);
             K_red = RoundMatrix(K_red, decimals);
             output_time += "Rounded to " + decimals + " decimals." + Environment.NewLine;
 
@@ -321,7 +316,7 @@ namespace Beam3D
             TrySolve(K_red, load_red, out time);
             output_time += "Dense, rounded K_red: " + Environment.NewLine + time + Environment.NewLine;
 
-            K_red = m.SparseOfMatrix(K_red);
+            K_red = Matrix<double>.Build.SparseOfMatrix(K_red);
             TrySolve(K_red, load_red, out time);
             output_time += "Sparse, rounded K_red: " + Environment.NewLine + time + Environment.NewLine;
             output_time += "=================END OF TEST=================" + Environment.NewLine + Environment.NewLine;
@@ -504,7 +499,7 @@ namespace Beam3D
 
             if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
             {
-                t = m.DenseOfArray(new double[,]
+                t = Matrix<double>.Build.DenseOfArray(new double[,]
             {
                     {      0, cy,  0},
                     { -cy*c1,  0, s1},
@@ -513,7 +508,7 @@ namespace Beam3D
             }
             else
             {
-                t = m.DenseOfArray(new double[,]
+                t = Matrix<double>.Build.DenseOfArray(new double[,]
             {
                     {                     cx,       cy,                   cz},
                     {(-cx*cy*c1 - cz*s1)/cxz,   cxz*c1,(-cy*cz*c1+cx*s1)/cxz},
@@ -521,22 +516,8 @@ namespace Beam3D
             });
             }
 
-            //Variable to building new matrices
-            var bd = m;
-
-            //Adding zeros to empty entries (3 rows at a time)
-            Matrix<double> T1;
-            T1 = t.Append(bd.Dense(3, 9));
-            Matrix<double> T2;
-            T2 = bd.Dense(3, 3).Append(t).Append(bd.Dense(3, 6));
-            Matrix<double> T3;
-            T3 = bd.Dense(3, 6).Append(t).Append(bd.Dense(3, 3));
-            Matrix<double> T4;
-            T4 = bd.Dense(3, 9).Append(t);
-
-            //Stacking 3x12 matrices on top of each other until T = 12x12 (all other than t is zero)
-            Matrix<double> T;
-            T = T1.Stack(T2).Stack(T3).Stack(T4);
+            var T = t.DiagonalStack(t);
+            T = T.DiagonalStack(T);
 
             Matrix<double> T_T = T.Transpose();
 
@@ -786,7 +767,7 @@ namespace Beam3D
 
                 Rectangle rec2 = rec1;
                 rec2.X = rec1.Right + 2;
-
+                
                 Bounds = rec0;
                 ButtonBounds = rec1;
                 ButtonBounds2 = rec2;
