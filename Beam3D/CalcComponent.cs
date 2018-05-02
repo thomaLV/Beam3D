@@ -479,7 +479,7 @@ namespace Beam3D
             return A;
         }
 
-        private void ElementStiffnessMatrix(Line currentLine, double E, double A, double Iy, double Iz, double J, double G, out Point3d p1, out Point3d p2, out Matrix<double> K_elem)
+        private void ElementStiffnessMatrix(Line currentLine, double E, double A, double Iy, double Iz, double J, double G, out Point3d p1, out Point3d p2, out Matrix<double> ke)
         {
             double L = Math.Round(currentLine.Length, 6);
 
@@ -516,6 +516,7 @@ namespace Beam3D
             });
             }
 
+            //Create transformation matrix T by stacking smaller t elements diagonally 
             var T = t.DiagonalStack(t);
             T = T.DiagonalStack(T);
 
@@ -535,7 +536,7 @@ namespace Beam3D
 
             double C1 = (G * J) / L;
 
-            K_elem = DenseMatrix.OfArray(new double[,]
+            ke = DenseMatrix.OfArray(new double[,]
             {
                     { A1,    0,    0,    0,    0,    0,  -A1,    0,    0,    0,    0,    0 },
                     {  0,  kz1,    0,    0,    0,  kz2,    0, -kz1,    0,    0,    0,  kz2 },
@@ -551,8 +552,8 @@ namespace Beam3D
                     {  0,  kz2,    0,    0,    0,  kz4,    0, -kz2,    0,    0,    0,  kz3 },
             });
 
-            K_elem = K_elem.Multiply(T);
-            K_elem = T_T.Multiply(K_elem);
+            ke = ke.Multiply(T);
+            ke = T_T.Multiply(ke);
         }
 
         private Matrix<double> GlobalStiffnessMatrix(List<Line> geometry, List<Point3d> points, double E, double A, double Iy, double Iz, double J, double G)
