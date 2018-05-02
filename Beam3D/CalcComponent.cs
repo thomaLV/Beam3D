@@ -562,27 +562,27 @@ namespace Beam3D
 
             foreach (Line currentLine in geometry)
             {
-                Matrix<double> K_elem;
+                Matrix<double> ke;
                 Point3d p1;
                 Point3d p2;
-                ElementStiffnessMatrix(currentLine, E, A, Iy, Iz, J, G, out p1, out p2, out K_elem);
+                ElementStiffnessMatrix(currentLine, E, A, Iy, Iz, J, G, out p1, out p2, out ke);
 
                 int node1 = points.IndexOf(p1);
                 int node2 = points.IndexOf(p2);
 
                 //Inputting values to correct entries in Global Stiffness Matrix
-                for (int i = 0; i < K_elem.RowCount / 2; i++)
+                for (int i = 0; i < ke.RowCount / 2; i++)
                 {
-                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
+                    for (int j = 0; j < ke.ColumnCount / 2; j++)
                     {
                         //top left 3x3 of k-element matrix
-                        K_tot[node1 * 6 + i, node1 * 6 + j] += K_elem[i, j];
+                        K_tot[node1 * 6 + i, node1 * 6 + j] += ke[i, j];
                         //top right 3x3 of k-element matrix  
-                        K_tot[node1 * 6 + i, node2 * 6 + j] += K_elem[i, j + 6];
+                        K_tot[node1 * 6 + i, node2 * 6 + j] += ke[i, j + 6];
                         //bottom left 3x3 of k-element matrix
-                        K_tot[node2 * 6 + i, node1 * 6 + j] += K_elem[i + 6, j];
+                        K_tot[node2 * 6 + i, node1 * 6 + j] += ke[i + 6, j];
                         //bottom right 3x3 of k-element matrix
-                        K_tot[node2 * 6 + i, node2 * 6 + j] += K_elem[i + 6, j + 6];
+                        K_tot[node2 * 6 + i, node2 * 6 + j] += ke[i + 6, j + 6];
                     }
                 }
             }
