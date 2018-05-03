@@ -20,16 +20,16 @@ namespace Beam3D
         }
 
         //Initialize BDCs
-        static int x = 0;
-        static int y = 0;
-        static int z = 0;
-        static int rx = 0;
-        static int ry = 0;
-        static int rz = 0;
+        private static int x = 0;
+        private static int y = 0;
+        private static int z = 0;
+        private static int rx = 0;
+        private static int ry = 0;
+        private static int rz = 0;
 
 
         //Method to allow c hanging of variables via GUI (see Component Visual)
-        public static void setBDC(string s, int i)
+        private static void setBDC(string s, int i)
         {
             if (s == "X")
             {
@@ -132,7 +132,7 @@ namespace Beam3D
 
 
         /// Component Visual//
-        public class Attributes_Custom : Grasshopper.Kernel.Attributes.GH_ComponentAttributes
+        private class Attributes_Custom : Grasshopper.Kernel.Attributes.GH_ComponentAttributes
         {
             public Attributes_Custom(GH_Component owner) : base(owner) { }
             protected override void Layout()
@@ -230,7 +230,7 @@ namespace Beam3D
                 }
             }
 
-            public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
+            private override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
             {
                 if (e.Button == MouseButtons.Left)
                 {
