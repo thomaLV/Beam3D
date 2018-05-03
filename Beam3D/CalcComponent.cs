@@ -3,6 +3,10 @@ using System.Collections.Generic;
 
 using Grasshopper.Kernel;
 using Rhino.Geometry;
+using System.Drawing;
+using Grasshopper.GUI.Canvas;
+using System.Windows.Forms;
+using Grasshopper.GUI;
 
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
@@ -19,6 +23,30 @@ namespace Beam3D
         {
         }
 
+        //Initialize moments
+        static bool startCalc = true;
+        static bool startTest = false;
+
+        //Method to allow c hanging of variables via GUI (see Component Visual)
+        public static void setStart(string s, bool i)
+        {
+            if (s == "Run")
+            {
+                startCalc = i;
+            }
+            if (s == "Run Test")
+            {
+                startTest = i;
+            }
+            Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
+            Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
+        }
+
+        public override void CreateAttributes()
+        {
+            m_attributes = new Attributes_Custom(this);
+        }
+
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddLineParameter("Lines", "LNS", "Geometry, in form of Lines)", GH_ParamAccess.list);
@@ -26,8 +54,6 @@ namespace Beam3D
             pManager.AddTextParameter("Material properties", "Mat", "Material Properties", GH_ParamAccess.item, "210000,3600,4920000,4920000,79300");
             pManager.AddTextParameter("PointLoads", "PL", "Load given as Vector [N]", GH_ParamAccess.list);
             pManager.AddTextParameter("PointMoment", "PM", "Moment set in a point in [Nm]", GH_ParamAccess.list, "");
-            pManager.AddBooleanParameter("Start calculations", "SC", "Set true to start calculations", GH_ParamAccess.item, false);
-            pManager.AddBooleanParameter("Solver test?", "ST", "Set true to start solver performance test", GH_ParamAccess.item, false);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -36,8 +62,6 @@ namespace Beam3D
             pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
             pManager.AddNumberParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
             pManager.AddNumberParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
-            pManager.AddTextParameter("Solvers", "S", "Result of solver performance check", GH_ParamAccess.item);
-            //pManager.AddTextParameter("K_tot", "K", "K-matrix print", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -48,9 +72,8 @@ namespace Beam3D
             List<string> bdctxt = new List<string>();       //Boundary conditions in string format
             List<string> loadtxt = new List<string>();      //loads in string format
             List<string> momenttxt = new List<string>();    //Moments in string format
-            string mattxt = "";                             //Material in string format
-            bool startCalc = false;
-            bool startTest = false;
+            string mattxt = "";    
+
 
             //Set expected inputs from Indata
             if (!DA.GetDataList(0, geometry)) return;       //sets geometry
@@ -58,55 +81,80 @@ namespace Beam3D
             if (!DA.GetData(2, ref mattxt)) return;         //sets material properties as string
             if (!DA.GetDataList(3, loadtxt)) return;        //sets load as string
             if (!DA.GetDataList(4, momenttxt)) return;      //sets moment as string
-            if (!DA.GetData(5, ref startCalc)) return;
-            if (!DA.GetData(6, ref startTest)) return;
             #endregion
+
+            //Interpret and set material parameters
+            double E;       //Material Young's modulus, initial value 210000 [MPa]
+            double A;       //Area for each element in same order as geometry, initial value CFS100x100 3600 [mm^2]
+            double Iy;      //Moment of inertia about local y axis, initial value 4.92E6 [mm^4]
+            double Iz;      //Moment of inertia about local z axis, initial value 4.92E6 [mm^4]
+            double J;       //Polar moment of inertia
+            double G;       //Shear modulus, initial value 79300 [mm^4]
+            SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G);
+
+            #region Prepares geometry, boundary conditions and loads for calculation
+            //List all nodes (every node only once), numbering them according to list index
+            List<Point3d> points = CreatePointList(geometry);
+
+
+            //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
+            List<int> bdc_value = CreateBDCList(bdctxt, points);
+
+
+            //Interpreting input load (text) and creating load list (do uble)
+            List<double> load = CreateLoadList(loadtxt, momenttxt, points);
+            #endregion
+
+            Vector<double> def_tot;
+            Vector<double> reactions;
+            List<double> internalStresses;
+            List<double> internalStrains;
 
             if (startCalc)
             {
-                //Interpret and set material parameters
-                double E;       //Material Young's modulus, initial value 210000 [MPa]
-                double A;       //Area for each element in same order as geometry, initial value CFS100x100 3600 [mm^2]
-                double Iy;      //Moment of inertia about local y axis, initial value 4.92E6 [mm^4]
-                double Iz;      //Moment of inertia about local z axis, initial value 4.92E6 [mm^4]
-                double J;       //Polar moment of inertia
-                double G;       //Shear modulus, initial value 79300 [mm^4]
-                SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G);
-                
-                #region Prepares geometry, boundary conditions and loads for calculation
-                //List all nodes (every node only once), numbering them according to list index
-                List<Point3d> points = CreatePointList(geometry);
-
-
-                //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
-                List<int> bdc_value = CreateBDCList(bdctxt, points);
-
-
-                //Interpreting input load (text) and creating load list (do uble)
-                List<double> load = CreateLoadList(loadtxt, momenttxt, points);
-                #endregion
-
                 #region Create global and reduced stiffness matrix
                 //Create global stiffness matrix
-                Matrix<double> K_tot = CreateGlobalStiffnessMatrix(geometry, points, E, A, Iy, Iz, J, G);
+                Matrix<double> K_tot = GlobalStiffnessMatrix(geometry, points, E, A, Iy, Iz, J, G);
 
                 //Create reduced K-matrix and reduced load list (removed free dofs)
                 Matrix<double> K_red;
                 Vector<double> load_red;
                 CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
                 #endregion
-                
+
                 #region Solver Performance Test
                 if (startTest)
                 {
                     string output_time = "";
-                    string test = "=================START OF TEST=================" + Environment.NewLine;
-                    test += "Number of lines: " + geometry.Count.ToString() + Environment.NewLine;
+                    string performanceResult = "=================START OF TEST=================" + Environment.NewLine;
+                    performanceResult += "Number of lines: " + geometry.Count.ToString() + Environment.NewLine;
+                    string tester = "";
+
+                    //checking for error with writing to file (skip test if unable to write)
+                    try
+                    {
+                        using (System.IO.StreamWriter file =
+                        new System.IO.StreamWriter(@"solverTest.txt", true))
+                        {
+                            file.WriteLine(tester);
+                        }
+                    }
+                    //create new file if solverTest.txt does not exist
+                    catch (System.IO.DirectoryNotFoundException)
+                    {
+                        System.IO.File.WriteAllText(@"solverTest.txt", tester);
+                    }
+                    //other exception (no write access?)
+                    catch (Exception)
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Write to file error! Create file solverTest.txt in Koala folder and/or Rhinoceros 5.exe folder");
+                        return;
+                    }
 
                     int decimals = 2;
                     CheckSolvers(K_red, load_red, decimals, out output_time);
 
-                    test += output_time;
+                    performanceResult += output_time;
 
                     //append result to txt-file (at buildpath)
                     try
@@ -114,11 +162,11 @@ namespace Beam3D
                         using (System.IO.StreamWriter file =
                         new System.IO.StreamWriter(@"solverTest.txt", true))
                         {
-                            file.WriteLine(test);
+                            file.WriteLine(performanceResult);
                         }
                     }
                     //create new file if solverTest.txt does not exist
-                    catch (System.IO.DirectoryNotFoundException) 
+                    catch (System.IO.DirectoryNotFoundException)
                     {
                         System.IO.File.WriteAllText(@"\solverTest.txt", output_time);
                     }
@@ -132,22 +180,30 @@ namespace Beam3D
                 def_reduced = K_red.Cholesky().Solve(load_red);
 
                 //Add the clamped dofs (= 0) to the deformations list
-                Vector<double> def_tot = RestoreTotalDeformationVector(def_reduced, bdc_value);
+                def_tot = RestoreTotalDeformationVector(def_reduced, bdc_value);
 
                 //Calculate the reaction forces from the deformations
-                Vector<double> reactions = K_tot.Multiply(def_tot);
-                
+                reactions = K_tot.Multiply(def_tot);
+
                 //Calculate the internal strains and stresses in each member
-                List<double> internalStresses;
-                List<double> internalStrains;
                 CalculateInternalStrainsAndStresses(def_tot, points, E, geometry, out internalStresses, out internalStrains);
                 #endregion
-
-                DA.SetDataList(0, def_tot);
-                DA.SetDataList(1, reactions);
-                DA.SetDataList(2, internalStresses);
-                DA.SetDataList(3, internalStrains);
             }
+            else
+            {
+                def_tot = Vector<double>.Build.Dense(points.Count*6);
+                reactions = def_tot;
+
+                internalStresses = new List<double>(geometry.Count);
+                internalStresses.AddRange(new double[geometry.Count]);
+                internalStrains = internalStresses;
+            }
+            DA.SetDataList(0, def_tot);
+            DA.SetDataList(1, reactions);
+            DA.SetDataList(2, internalStresses);
+            DA.SetDataList(3, internalStrains);
+
+
         } //End of main component
 
         private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> points, double E, List<Line> geometry, out List<double> internalStresses, out List<double> internalStrains)
@@ -423,99 +479,65 @@ namespace Beam3D
             return A;
         }
 
-        private Matrix<double> CreateGlobalStiffnessMatrix(List<Line> geometry, List<Point3d> points, double E, double A, double Iy, double Iz, double J, double G)
+        private void ElementStiffnessMatrix(Line currentLine, double E, double A, double Iy, double Iz, double J, double G, out Point3d p1, out Point3d p2, out Matrix<double> ke)
         {
-            int gdofs = points.Count * 6;
-            Matrix<double> K_tot = DenseMatrix.OfArray(new double[gdofs, gdofs]);
+            double L = Math.Round(currentLine.Length, 6);
 
-            foreach (Line currentLine in geometry)
+            p1 = new Point3d(Math.Round(currentLine.From.X, 2), Math.Round(currentLine.From.Y, 2), Math.Round(currentLine.From.Z, 2));
+            p2 = new Point3d(Math.Round(currentLine.To.X, 2), Math.Round(currentLine.To.Y, 2), Math.Round(currentLine.To.Z, 2));
+
+            double alpha = 0;
+
+            double cx = (p2.X - p1.X) / L;
+            double cy = (p2.Y - p1.Y) / L;
+            double cz = (p2.Z - p1.Z) / L;
+            double c1 = Math.Cos(alpha);
+            double s1 = Math.Sin(alpha);
+            double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
+
+            Matrix<double> t;
+
+            if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
             {
-                double L = Math.Round(currentLine.Length, 6);
-
-                Point3d p1 = new Point3d(Math.Round(currentLine.From.X, 2), Math.Round(currentLine.From.Y, 2), Math.Round(currentLine.From.Z, 2));
-                Point3d p2 = new Point3d(Math.Round(currentLine.To.X, 2), Math.Round(currentLine.To.Y, 2), Math.Round(currentLine.To.Z, 2));
-
-                double alpha = 0;
-
-                double cx = (p2.X - p1.X) / L;
-                double cy = (p2.Y - p1.Y) / L;
-                double cz = (p2.Z - p1.Z) / L;
-                double c1 = Math.Cos(alpha);
-                double s1 = Math.Sin(alpha);
-                double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
-
-                Matrix<double> gamma;
-
-                if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
-                {
-                    gamma = Matrix<double>.Build.DenseOfArray(new double[,]
-                {
+                t = Matrix<double>.Build.DenseOfArray(new double[,]
+            {
                     {      0, cy,  0},
                     { -cy*c1,  0, s1},
                     {  cy*s1,  0, c1},
-                });
-                }
-                else
-                {
-                    gamma = Matrix<double>.Build.DenseOfArray(new double[,]
-                {
+            });
+            }
+            else
+            {
+                t = Matrix<double>.Build.DenseOfArray(new double[,]
+            {
                     {                     cx,       cy,                   cz},
                     {(-cx*cy*c1 - cz*s1)/cxz,   cxz*c1,(-cy*cz*c1+cx*s1)/cxz},
                     {   (cx*cy*s1-cz*c1)/cxz,  -cxz*s1, (cy*cz*s1+cx*c1)/cxz},
-                });
-                }
+            });
+            }
 
-                var bd = Matrix<double>.Build;
+            //Create transformation matrix T by stacking smaller t elements diagonally 
+            var T = t.DiagonalStack(t);
+            T = T.DiagonalStack(T);
 
-                Matrix<double> T1;
-                T1 = gamma.Append(bd.Dense(3, 9));
-                Matrix<double> T2;
-                T2 = bd.Dense(3, 3).Append(gamma);
-                T2 = T2.Append(bd.Dense(3, 6));
-                Matrix<double> T3;
-                T3 = bd.Dense(3, 6).Append(gamma);
-                T3 = T3.Append(bd.Dense(3, 3));
-                Matrix<double> T4;
-                T4 = bd.Dense(3, 9).Append(gamma);
-                Matrix<double> T;
-                T = T1.Stack(T2);
-                T = T.Stack(T3);
-                T = T.Stack(T4);
+            Matrix<double> T_T = T.Transpose();
 
-                //Matrix<double> T = SparseMatrix.OfArray(new double[,]
-                //{
-                //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-                //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-                //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-                //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-                //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-                //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-                //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-                //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-                //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-                //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-                //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-                //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-                //});
+            double A1 = (E * A) / (L);
 
-                Matrix<double> T_T = T.Transpose();
+            double kz1 = (12 * E * Iz) / (L * L * L);
+            double kz2 = (6 * E * Iz) / (L * L);
+            double kz3 = (4 * E * Iz) / L;
+            double kz4 = (2 * E * Iz) / L;
 
-                double A1 = (E * A) / (L);
+            double ky1 = (12 * E * Iy) / (L * L * L);
+            double ky2 = (6 * E * Iy) / (L * L);
+            double ky3 = (4 * E * Iy) / L;
+            double ky4 = (2 * E * Iy) / L;
 
-                double kz1 = (12 * E * Iz) / (L * L * L);
-                double kz2 = (6 * E * Iz) / (L * L);
-                double kz3 = (4 * E * Iz) / L;
-                double kz4 = (2 * E * Iz) / L;
+            double C1 = (G * J) / L;
 
-                double ky1 = (12 * E * Iy) / (L * L * L);
-                double ky2 = (6 * E * Iy) / (L * L);
-                double ky3 = (4 * E * Iy) / L;
-                double ky4 = (2 * E * Iy) / L;
-
-                double C1 = (G * J) / L;
-
-                Matrix<double> K_elem = DenseMatrix.OfArray(new double[,]
-                {
+            ke = DenseMatrix.OfArray(new double[,]
+            {
                     { A1,    0,    0,    0,    0,    0,  -A1,    0,    0,    0,    0,    0 },
                     {  0,  kz1,    0,    0,    0,  kz2,    0, -kz1,    0,    0,    0,  kz2 },
                     {  0,    0,  ky1,    0, -ky2,    0,    0,    0, -ky1,    0, -ky2,    0 },
@@ -528,39 +550,39 @@ namespace Beam3D
                     {  0,    0,    0,  -C1,    0,    0,    0,    0,    0,   C1,    0,    0 },
                     {  0,    0, -ky2,    0,  ky4,    0,    0,    0,  ky2,    0,  ky3,    0 },
                     {  0,  kz2,    0,    0,    0,  kz4,    0, -kz2,    0,    0,    0,  kz3 },
-                });
+            });
 
-                K_elem = K_elem.Multiply(T);
-                K_elem = T_T.Multiply(K_elem);
+            ke = ke.Multiply(T);
+            ke = T_T.Multiply(ke);
+        }
+
+        private Matrix<double> GlobalStiffnessMatrix(List<Line> geometry, List<Point3d> points, double E, double A, double Iy, double Iz, double J, double G)
+        {
+            int gdofs = points.Count * 6;
+            Matrix<double> K_tot = DenseMatrix.OfArray(new double[gdofs, gdofs]);
+
+            foreach (Line currentLine in geometry)
+            {
+                Matrix<double> K_elem;
+                Point3d p1;
+                Point3d p2;
+                ElementStiffnessMatrix(currentLine, E, A, Iy, Iz, J, G, out p1, out p2, out K_elem);
 
                 int node1 = points.IndexOf(p1);
                 int node2 = points.IndexOf(p2);
 
-                //System.Diagnostics.Debug.WriteLine("Node1: " + node1.ToString() + ", Node2: " + node2.ToString());
-
-                //PrintMatrix(K_elem,"K_elem");
-
                 //Inputting values to correct entries in Global Stiffness Matrix
                 for (int i = 0; i < K_elem.RowCount / 2; i++)
                 {
-                    //top left 3x3 of k-element matrix
                     for (int j = 0; j < K_elem.ColumnCount / 2; j++)
                     {
+                        //top left 3x3 of k-element matrix
                         K_tot[node1 * 6 + i, node1 * 6 + j] += K_elem[i, j];
-                    }
-                    //top right 3x3 of k-element matrix  
-                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-                    {
+                        //top right 3x3 of k-element matrix  
                         K_tot[node1 * 6 + i, node2 * 6 + j] += K_elem[i, j + 6];
-                    }
-                    //bottom left 3x3 of k-element matrix
-                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-                    {
+                        //bottom left 3x3 of k-element matrix
                         K_tot[node2 * 6 + i, node1 * 6 + j] += K_elem[i + 6, j];
-                    }
-                    //bottom right 3x3 of k-element matrix
-                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-                    {
+                        //bottom right 3x3 of k-element matrix
                         K_tot[node2 * 6 + i, node2 * 6 + j] += K_elem[i + 6, j + 6];
                     }
                 }
@@ -593,7 +615,7 @@ namespace Beam3D
             {
                 int i = points.IndexOf(point);
                 int j = coordlist.IndexOf(point);
-                loads[i * 6 + 0] = inputLoads[j * 3 + 0];
+                loads[i * 6 + 0] = inputLoads[j * 3 + 0]; //is loads out of range? (doesn't seem to have been initialized with size yet)
                 loads[i * 6 + 1] = inputLoads[j * 3 + 1];
                 loads[i * 6 + 2] = inputLoads[j * 3 + 2];
             }
@@ -722,6 +744,100 @@ namespace Beam3D
         public override Guid ComponentGuid
         {
             get { return new Guid("d636ebc9-0d19-44d5-a3ad-cec704b82323"); }
+        }
+
+
+        /// Component Visual//
+        public class Attributes_Custom : Grasshopper.Kernel.Attributes.GH_ComponentAttributes
+        {
+            public Attributes_Custom(GH_Component owner) : base(owner) { }
+            protected override void Layout()
+            {
+                base.Layout();
+
+                Rectangle rec0 = GH_Convert.ToRectangle(Bounds);
+
+                rec0.Height += 22;
+
+                Rectangle rec1 = rec0;
+                rec1.X = rec0.Left + 1;
+                rec1.Y = rec0.Bottom - 22;
+                rec1.Width = (rec0.Width) / 3 + 1;
+                rec1.Height = 22;
+                rec1.Inflate(-2, -2);
+
+                Rectangle rec2 = rec1;
+                rec2.X = rec1.Right + 2;
+                
+                Bounds = rec0;
+                ButtonBounds = rec1;
+                ButtonBounds2 = rec2;
+
+            }
+
+            GH_Palette xColor = GH_Palette.Black;
+            GH_Palette yColor = GH_Palette.Grey;
+
+            private Rectangle ButtonBounds { get; set; }
+            private Rectangle ButtonBounds2 { get; set; }
+            private Rectangle ButtonBounds3 { get; set; }
+
+            protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
+            {
+                base.Render(canvas, graphics, channel);
+                if (channel == GH_CanvasChannel.Objects)
+                {
+                    GH_Capsule button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, xColor, "Run", 3, 0);
+                    button.Render(graphics, Selected, false, false);
+                    button.Dispose();
+                }
+                if (channel == GH_CanvasChannel.Objects)
+                {
+                    GH_Capsule button2 = GH_Capsule.CreateTextCapsule(ButtonBounds2, ButtonBounds2, yColor, "Run Test", 2, 0);
+                    button2.Render(graphics, Selected, Owner.Locked, false);
+                    button2.Dispose();
+                }
+            }
+
+            public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    RectangleF rec = ButtonBounds;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("Run");
+                        if (xColor == GH_Palette.Black) { CalcComponent.setStart("Run", true); }
+                        if (xColor == GH_Palette.Grey) { CalcComponent.setStart("Run", false); }
+                        sender.Refresh();
+                        return GH_ObjectResponse.Handled;
+                    }
+                    rec = ButtonBounds2;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("Run Test");
+                        if (yColor == GH_Palette.Black) { CalcComponent.setStart("Run Test", true); }
+                        if (yColor == GH_Palette.Grey) { CalcComponent.setStart("Run Test", false); }
+                        sender.Refresh();
+                        return GH_ObjectResponse.Handled;
+                    }
+                }
+                return base.RespondToMouseDown(sender, e);
+            }
+
+            private void switchColor(string button)
+            {
+                if (button == "Run")
+                {
+                    if (xColor == GH_Palette.Black) { xColor = GH_Palette.Grey; }
+                    else { xColor = GH_Palette.Black; }
+                }
+                else if (button == "Run Test")
+                {
+                    if (yColor == GH_Palette.Black) { yColor = GH_Palette.Grey; }
+                    else { yColor = GH_Palette.Black; }
+                }
+            }
         }
     }
 }
