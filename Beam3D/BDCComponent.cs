@@ -20,12 +20,12 @@ namespace Beam3D
         }
 
         //Initialize BDCs
-        static int x = 0;
-        static int y = 0;
-        static int z = 0;
-        static int rx = 0;
-        static int ry = 0;
-        static int rz = 0;
+        private static int x = 0;
+        private static int y = 0;
+        private static int z = 0;
+        private static int rx = 0;
+        private static int ry = 0;
+        private static int rz = 0;
 
         public static void setBDC(string s, int i)
         {
@@ -53,8 +53,8 @@ namespace Beam3D
             {
                 rz = i;
             }
-            Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
-            Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
+            //Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
+            //Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
         }
 
         public override void CreateAttributes()
@@ -460,7 +460,7 @@ namespace Beam3D
                     if (xColor == GH_Palette.Black) { BDCComponent.setBDC("X", 0); }
                     if (xColor == GH_Palette.Grey) { BDCComponent.setBDC("X", 1); }
                     sender.Refresh();
-                    return GH_ObjectResponse.Handled;
+                    //return GH_ObjectResponse.Handled;
                 }
                 rec = ButtonBounds2;
                 if (rec.Contains(e.CanvasLocation))
@@ -469,7 +469,7 @@ namespace Beam3D
                     if (yColor == GH_Palette.Black) { BDCComponent.setBDC("Y", 0); }
                     if (yColor == GH_Palette.Grey) { BDCComponent.setBDC("Y", 1); }
                     sender.Refresh();
-                    return GH_ObjectResponse.Handled;
+                    //return GH_ObjectResponse.Handled;
                 }
                 rec = ButtonBounds3;
                 if (rec.Contains(e.CanvasLocation))
@@ -478,7 +478,7 @@ namespace Beam3D
                     if (zColor == GH_Palette.Black) { BDCComponent.setBDC("Z", 0); }
                     if (zColor == GH_Palette.Grey) { BDCComponent.setBDC("Z", 1); }
                     sender.Refresh();
-                    return GH_ObjectResponse.Handled;
+                    //return GH_ObjectResponse.Handled;
                 }
                 rec = ButtonBounds4;
                 if (rec.Contains(e.CanvasLocation))
@@ -487,7 +487,7 @@ namespace Beam3D
                     if (rxColor == GH_Palette.Black) { BDCComponent.setBDC("RX", 0); }
                     if (rxColor == GH_Palette.Grey) { BDCComponent.setBDC("RX", 1); }
                     sender.Refresh();
-                    return GH_ObjectResponse.Handled;
+                    //return GH_ObjectResponse.Handled;
                 }
                 rec = ButtonBounds5;
                 if (rec.Contains(e.CanvasLocation))
@@ -496,7 +496,7 @@ namespace Beam3D
                     if (ryColor == GH_Palette.Black) { BDCComponent.setBDC("RY", 0); }
                     if (ryColor == GH_Palette.Grey) { BDCComponent.setBDC("RY", 1); }
                     sender.Refresh();
-                    return GH_ObjectResponse.Handled;
+                    //return GH_ObjectResponse.Handled;
                 }
                 rec = ButtonBounds6;
                 if (rec.Contains(e.CanvasLocation))
@@ -505,9 +505,10 @@ namespace Beam3D
                     if (rzColor == GH_Palette.Black) { BDCComponent.setBDC("RZ", 0); }
                     if (rzColor == GH_Palette.Grey) { BDCComponent.setBDC("RZ", 1); }
                     sender.Refresh();
-                    return GH_ObjectResponse.Handled;
+                    //return GH_ObjectResponse.Handled;
                 }
             }
+            Owner.ExpireSolution(true);
             return base.RespondToMouseDown(sender, e);
         }
 
