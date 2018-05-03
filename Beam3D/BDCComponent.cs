@@ -53,8 +53,8 @@ namespace Beam3D
             {
                 rz = i;
             }
-            Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
-            Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
+            //Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();  //Static field kan ikke referere til objektet som lages
+            //Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);//må derfor expire solution annet sted.
         }
 
         public override void CreateAttributes()
@@ -508,6 +508,7 @@ namespace Beam3D
                     return GH_ObjectResponse.Handled;
                 }
             }
+            Owner.ExpireSolution(true);
             return base.RespondToMouseDown(sender, e);
         }
 
