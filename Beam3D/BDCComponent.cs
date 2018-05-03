@@ -230,7 +230,7 @@ namespace Beam3D
                 }
             }
 
-            private override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
+            public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
             {
                 if (e.Button == MouseButtons.Left)
                 {
