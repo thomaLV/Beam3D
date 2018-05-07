@@ -98,7 +98,7 @@ namespace Beam3D
 
 
             //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
-            Vector<int> bdc_value = CreateBDCList(bdctxt, points);
+            Vector<double> bdc_value = CreateBDCList(bdctxt, points);
 
 
             //Interpreting input load (text) and creating load list (do uble)
@@ -244,7 +244,7 @@ namespace Beam3D
             }
         }
 
-        private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, Vector<int> bdc_value)
+        private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, Vector<double> bdc_value)
         {
             Vector<double> def = Vector<double>.Build.Dense(bdc_value.Count);
             for (int i = 0, j = 0; i < bdc_value.Count; i++)
@@ -258,7 +258,7 @@ namespace Beam3D
             return def;
         }
 
-        private void CreateReducedGlobalStiffnessMatrix(Vector<int> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
+        private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
         {
             K_red = Matrix<double>.Build.DenseOfMatrix(K);
             List<double> load_redu = new List<double>(load);
@@ -650,9 +650,9 @@ namespace Beam3D
             return loads;
         }
 
-        private Vector<int> CreateBDCList(List<string> bdctxt, List<Point3d> points)
+        private Vector<double> CreateBDCList(List<string> bdctxt, List<Point3d> points)
         {
-            Vector<int> bdc_value = Vector<int>.Build.Dense(points.Count * 6, 1);
+            Vector<double> bdc_value = Vector<double>.Build.Dense(points.Count * 6, 1);
             List<int> bdcs = new List<int>();
             List<Point3d> bdc_points = new List<Point3d>(); //Coordinates relating til bdc_value in for (eg. x y z)
 
@@ -687,23 +687,6 @@ namespace Beam3D
                 bdc_value[i * 6 + 5] = bdcs[bdc_points.IndexOf(point) * 6 + 5];
             }
             return bdc_value;
-        //}
-        //    //Format to correct entries in bdc_value
-        //    for (int i = 0; i < points.Count; i++)
-        //    {
-        //        Point3d tempP = points[i];
-
-        //        if (bdc_points.Contains(tempP))
-        //        {
-        //            bdc_value[i * 6 + 0] = bdcs[bdc_points.IndexOf(tempP) * 6 + 0];
-        //            bdc_value[i * 6 + 1] = bdcs[bdc_points.IndexOf(tempP) * 6 + 1];
-        //            bdc_value[i * 6 + 2] = bdcs[bdc_points.IndexOf(tempP) * 6 + 2];
-        //            bdc_value[i * 6 + 3] = bdcs[bdc_points.IndexOf(tempP) * 6 + 3];
-        //            bdc_value[i * 6 + 4] = bdcs[bdc_points.IndexOf(tempP) * 6 + 4];
-        //            bdc_value[i * 6 + 5] = bdcs[bdc_points.IndexOf(tempP) * 6 + 5];
-        //        }
-        //    }
-        //    return bdc_value;
         }
 
         private void SetMaterial(string mattxt, out double E, out double A, out double Iy, out double Iz, out double J, out double G)
