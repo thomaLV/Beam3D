@@ -38,8 +38,8 @@ namespace Beam3D
             {
                 startTest = i;
             }
-            Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
-            Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
+            //Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
+            //Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
         }
 
         public override void CreateAttributes()
@@ -809,6 +809,7 @@ namespace Beam3D
                         switchColor("Run");
                         if (xColor == GH_Palette.Black) { CalcComponent.setStart("Run", true); }
                         if (xColor == GH_Palette.Grey) { CalcComponent.setStart("Run", false); }
+                        Owner.ExpireSolution(true);
                         sender.Refresh();
                         return GH_ObjectResponse.Handled;
                     }
@@ -818,6 +819,7 @@ namespace Beam3D
                         switchColor("Run Test");
                         if (yColor == GH_Palette.Black) { CalcComponent.setStart("Run Test", true); }
                         if (yColor == GH_Palette.Grey) { CalcComponent.setStart("Run Test", false); }
+                        Owner.ExpireSolution(true);
                         sender.Refresh();
                         return GH_ObjectResponse.Handled;
                     }
