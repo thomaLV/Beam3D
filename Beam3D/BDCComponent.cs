@@ -20,12 +20,12 @@ namespace Beam3D
         }
 
         //Initialize BDCs
-        private static int x = 0;
-        private static int y = 0;
-        private static int z = 0;
-        private static int rx = 0;
-        private static int ry = 0;
-        private static int rz = 0;
+        private static int x;
+        private static int y;
+        private static int z;
+        private static int rx;
+        private static int ry;
+        private static int rz;
 
 
         //Method to allow c hanging of variables via GUI (see Component Visual)
@@ -55,8 +55,6 @@ namespace Beam3D
             {
                 rz = i;
             }
-            //Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();  //Static field kan ikke referere til objektet som lages
-            //Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);//må derfor expire solution annet sted.
         }
 
         public override void CreateAttributes()
@@ -116,7 +114,7 @@ namespace Beam3D
             }
             return points;
         }
-        
+
         protected override System.Drawing.Bitmap Icon
         {
             get
@@ -196,8 +194,8 @@ namespace Beam3D
                 base.Render(canvas, graphics, channel);
                 if (channel == GH_CanvasChannel.Objects)
                 {
-                    GH_Capsule button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, xColor, "X", 3, 0);
-                    button.Render(graphics, Selected, false, false);
+                    GH_Capsule button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, xColor, "X", 2, 0);
+                    button.Render(graphics, Selected, Owner.Locked, false);
                     button.Dispose();
                 }
                 if (channel == GH_CanvasChannel.Objects)
@@ -232,59 +230,59 @@ namespace Beam3D
                 }
             }
 
-        public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
-        {
-            if (e.Button == MouseButtons.Left)
+            public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
             {
-                RectangleF rec = ButtonBounds;
-                if (rec.Contains(e.CanvasLocation))
+                if (e.Button == MouseButtons.Left)
                 {
-                    switchColor("X");
-                }
-                rec = ButtonBounds2;
-                if (rec.Contains(e.CanvasLocation))
-                {
-                    switchColor("Y");
-                }
-                rec = ButtonBounds3;
-                if (rec.Contains(e.CanvasLocation))
-                {
-                    switchColor("Z");
-                }
-                rec = ButtonBounds4;
-                if (rec.Contains(e.CanvasLocation))
-                {
-                    switchColor("RX");
-                }
-                rec = ButtonBounds5;
-                if (rec.Contains(e.CanvasLocation))
-                {
-                    switchColor("RY");
-                }
-                rec = ButtonBounds6;
-                if (rec.Contains(e.CanvasLocation))
-                {
-                    switchColor("RZ");
-                }
+                    RectangleF rec = ButtonBounds;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("X");
+                    }
+                    rec = ButtonBounds2;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("Y");
+                    }
+                    rec = ButtonBounds3;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("Z");
+                    }
+                    rec = ButtonBounds4;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("RX");
+                    }
+                    rec = ButtonBounds5;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("RY");
+                    }
+                    rec = ButtonBounds6;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("RZ");
+                    }
                     rec = BoundsAllButtons;
-                if (rec.Contains(e.CanvasLocation))
-                {
-                    if (xColor == GH_Palette.Black) { BDCComponent.setBDC("X", 0); }
-                    if (xColor == GH_Palette.Grey) { BDCComponent.setBDC("X", 1); }
-                    if (yColor == GH_Palette.Black) { BDCComponent.setBDC("Y", 0); }
-                    if (yColor == GH_Palette.Grey) { BDCComponent.setBDC("Y", 1); }
-                    if (zColor == GH_Palette.Black) { BDCComponent.setBDC("Z", 0); }
-                    if (zColor == GH_Palette.Grey) { BDCComponent.setBDC("Z", 1); }
-                    if (rxColor == GH_Palette.Black) { BDCComponent.setBDC("RX", 0); }
-                    if (rxColor == GH_Palette.Grey) { BDCComponent.setBDC("RX", 1); }
-                    if (ryColor == GH_Palette.Black) { BDCComponent.setBDC("RY", 0); }
-                    if (ryColor == GH_Palette.Grey) { BDCComponent.setBDC("RY", 1); }
-                    if (rzColor == GH_Palette.Black) { BDCComponent.setBDC("RZ", 0); }
-                    if (rzColor == GH_Palette.Grey) { BDCComponent.setBDC("RZ", 1); }
-                    Owner.ExpireSolution(true);
-                }
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        if (xColor == GH_Palette.Black) { BDCComponent.setBDC("X", 0); }
+                        else  { BDCComponent.setBDC("X", 1); }
+                        if (yColor == GH_Palette.Black) { BDCComponent.setBDC("Y", 0); }
+                        else  { BDCComponent.setBDC("Y", 1); }
+                        if (zColor == GH_Palette.Black) { BDCComponent.setBDC("Z", 0); }
+                        else  { BDCComponent.setBDC("Z", 1); }
+                        if (rxColor == GH_Palette.Black) { BDCComponent.setBDC("RX", 0); }
+                        else { BDCComponent.setBDC("RX", 1); }
+                        if (ryColor == GH_Palette.Black) { BDCComponent.setBDC("RY", 0); }
+                        else { BDCComponent.setBDC("RY", 1); }
+                        if (rzColor == GH_Palette.Black) { BDCComponent.setBDC("RZ", 0); }
+                        else { BDCComponent.setBDC("RZ", 1); }
+                        Owner.ExpireSolution(true);
+                    }
                     return GH_ObjectResponse.Handled;
-            }
+                }
                 return base.RespondToMouseDown(sender, e);
             }
 

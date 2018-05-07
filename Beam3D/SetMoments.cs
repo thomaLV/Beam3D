@@ -39,8 +39,6 @@ namespace Beam3D
             {
                 mz = i;
             }
-            Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
-            Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
         }
 
         public override void CreateAttributes()
@@ -128,17 +126,18 @@ namespace Beam3D
                 Rectangle rec3 = rec2;
                 rec3.X = rec2.Right + 2;
 
+                BoundsAllButtons = rec0;
                 Bounds = rec0;
                 ButtonBounds = rec1;
                 ButtonBounds2 = rec2;
                 ButtonBounds3 = rec3;
-
             }
 
             GH_Palette xColor = GH_Palette.Black;
             GH_Palette yColor = GH_Palette.Black;
             GH_Palette zColor = GH_Palette.Black;
 
+            private Rectangle BoundsAllButtons { get; set; }
             private Rectangle ButtonBounds { get; set; }
             private Rectangle ButtonBounds2 { get; set; }
             private Rectangle ButtonBounds3 { get; set; }
@@ -148,8 +147,8 @@ namespace Beam3D
                 base.Render(canvas, graphics, channel);
                 if (channel == GH_CanvasChannel.Objects)
                 {
-                    GH_Capsule button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, xColor, "MX", 3, 0);
-                    button.Render(graphics, Selected, false, false);
+                    GH_Capsule button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, xColor, "MX", 2, 0);
+                    button.Render(graphics, Selected, Owner.Locked, false);
                     button.Dispose();
                 }
                 if (channel == GH_CanvasChannel.Objects)
@@ -174,29 +173,29 @@ namespace Beam3D
                     if (rec.Contains(e.CanvasLocation))
                     {
                         switchColor("MX");
-                        if (xColor == GH_Palette.Black) { SetMoments.setMom("MX", 0); }
-                        if (xColor == GH_Palette.Grey) { SetMoments.setMom("MX", 1); }
-                        sender.Refresh();
-                        return GH_ObjectResponse.Handled;
                     }
                     rec = ButtonBounds2;
                     if (rec.Contains(e.CanvasLocation))
                     {
                         switchColor("MY");
-                        if (yColor == GH_Palette.Black) { SetMoments.setMom("MY", 0); }
-                        if (yColor == GH_Palette.Grey) { SetMoments.setMom("MY", 1); }
-                        sender.Refresh();
-                        return GH_ObjectResponse.Handled;
                     }
                     rec = ButtonBounds3;
                     if (rec.Contains(e.CanvasLocation))
                     {
                         switchColor("MZ");
-                        if (zColor == GH_Palette.Black) { SetMoments.setMom("MZ", 0); }
-                        if (zColor == GH_Palette.Grey) { SetMoments.setMom("MZ", 1); }
-                        sender.Refresh();
-                        return GH_ObjectResponse.Handled;
                     }
+                    rec = BoundsAllButtons;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        if (xColor == GH_Palette.Black) { setMom("MX", 0); }
+                        if (xColor == GH_Palette.Grey) { setMom("MX", 1); }
+                        if (yColor == GH_Palette.Black) { setMom("MY", 0); }
+                        if (yColor == GH_Palette.Grey) { setMom("MY", 1); }
+                        if (zColor == GH_Palette.Black) { setMom("MZ", 0); }
+                        if (zColor == GH_Palette.Grey) { setMom("MZ", 1); }
+                        Owner.ExpireSolution(true);
+                    }
+                    return GH_ObjectResponse.Handled;
                 }
                 return base.RespondToMouseDown(sender, e);
             }
@@ -218,6 +217,7 @@ namespace Beam3D
                     if (yColor == GH_Palette.Black) { yColor = GH_Palette.Grey; }
                     else { yColor = GH_Palette.Black; }
                 }
+                Owner.ExpireSolution(true);
             }
         }
     }
