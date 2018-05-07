@@ -166,6 +166,7 @@ namespace Beam3D
                 rec6.X = rec2.Right + 2;
 
                 Bounds = rec0;
+                BoundsAllButtons = rec0;
                 ButtonBounds = rec1;
                 ButtonBounds2 = rec2;
                 ButtonBounds3 = rec3;
@@ -182,6 +183,7 @@ namespace Beam3D
             GH_Palette ryColor = GH_Palette.Black;
             GH_Palette rzColor = GH_Palette.Black;
 
+            private Rectangle BoundsAllButtons { get; set; }
             private Rectangle ButtonBounds { get; set; }
             private Rectangle ButtonBounds2 { get; set; }
             private Rectangle ButtonBounds3 { get; set; }
@@ -238,60 +240,53 @@ namespace Beam3D
                 if (rec.Contains(e.CanvasLocation))
                 {
                     switchColor("X");
-                    if (xColor == GH_Palette.Black) { BDCComponent.setBDC("X", 0); }
-                    if (xColor == GH_Palette.Grey) { BDCComponent.setBDC("X", 1); }
-                    sender.Refresh();
-                    return GH_ObjectResponse.Handled;
                 }
                 rec = ButtonBounds2;
                 if (rec.Contains(e.CanvasLocation))
                 {
                     switchColor("Y");
-                    if (yColor == GH_Palette.Black) { BDCComponent.setBDC("Y", 0); }
-                    if (yColor == GH_Palette.Grey) { BDCComponent.setBDC("Y", 1); }
-                    sender.Refresh();
-                    return GH_ObjectResponse.Handled;
                 }
                 rec = ButtonBounds3;
                 if (rec.Contains(e.CanvasLocation))
                 {
                     switchColor("Z");
-                    if (zColor == GH_Palette.Black) { BDCComponent.setBDC("Z", 0); }
-                    if (zColor == GH_Palette.Grey) { BDCComponent.setBDC("Z", 1); }
-                    sender.Refresh();
-                    return GH_ObjectResponse.Handled;
                 }
                 rec = ButtonBounds4;
                 if (rec.Contains(e.CanvasLocation))
                 {
                     switchColor("RX");
-                    if (rxColor == GH_Palette.Black) { BDCComponent.setBDC("RX", 0); }
-                    if (rxColor == GH_Palette.Grey) { BDCComponent.setBDC("RX", 1); }
-                    sender.Refresh();
-                    return GH_ObjectResponse.Handled;
                 }
                 rec = ButtonBounds5;
                 if (rec.Contains(e.CanvasLocation))
                 {
                     switchColor("RY");
-                    if (ryColor == GH_Palette.Black) { BDCComponent.setBDC("RY", 0); }
-                    if (ryColor == GH_Palette.Grey) { BDCComponent.setBDC("RY", 1); }
-                    sender.Refresh();
-                    return GH_ObjectResponse.Handled;
                 }
                 rec = ButtonBounds6;
                 if (rec.Contains(e.CanvasLocation))
                 {
                     switchColor("RZ");
+                }
+                    rec = BoundsAllButtons;
+                if (rec.Contains(e.CanvasLocation))
+                {
+                    if (xColor == GH_Palette.Black) { BDCComponent.setBDC("X", 0); }
+                    if (xColor == GH_Palette.Grey) { BDCComponent.setBDC("X", 1); }
+                    if (yColor == GH_Palette.Black) { BDCComponent.setBDC("Y", 0); }
+                    if (yColor == GH_Palette.Grey) { BDCComponent.setBDC("Y", 1); }
+                    if (zColor == GH_Palette.Black) { BDCComponent.setBDC("Z", 0); }
+                    if (zColor == GH_Palette.Grey) { BDCComponent.setBDC("Z", 1); }
+                    if (rxColor == GH_Palette.Black) { BDCComponent.setBDC("RX", 0); }
+                    if (rxColor == GH_Palette.Grey) { BDCComponent.setBDC("RX", 1); }
+                    if (ryColor == GH_Palette.Black) { BDCComponent.setBDC("RY", 0); }
+                    if (ryColor == GH_Palette.Grey) { BDCComponent.setBDC("RY", 1); }
                     if (rzColor == GH_Palette.Black) { BDCComponent.setBDC("RZ", 0); }
                     if (rzColor == GH_Palette.Grey) { BDCComponent.setBDC("RZ", 1); }
-                    sender.Refresh();
-                    return GH_ObjectResponse.Handled;
+                    Owner.ExpireSolution(true);
                 }
+                    return GH_ObjectResponse.Handled;
             }
-            Owner.ExpireSolution(true);
-            return base.RespondToMouseDown(sender, e);
-        }
+                return base.RespondToMouseDown(sender, e);
+            }
 
             private void switchColor(string button)
             {
