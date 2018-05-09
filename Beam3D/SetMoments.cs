@@ -19,9 +19,9 @@ namespace Beam3D
         {
         }
         //Initialize moments
-        static int mx = 0;
-        static int my = 0;
-        static int mz = 0;
+        static int mx = 1;
+        static int my = 1;
+        static int mz = 1;
 
 
         //Method to allow c hanging of variables via GUI (see Component Visual)
