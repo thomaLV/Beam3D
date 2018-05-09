@@ -251,7 +251,7 @@ namespace Beam3D
                 oldXYZ.AddRange(tempP);
 
                 double L = points[i1].DistanceTo(points[i2]);   //L is distance from startnode to endnode
-                var x = Vector<double>.Build.Dense(n + 1);      //maybe this should be projected x instead???
+                var x = Vector<double>.Build.Dense(n + 1);      //x is vector pieced x += L / n 
                 for (int j = 0; j < n + 1; j++)
                 {
                     x[j] = j * L / n;
