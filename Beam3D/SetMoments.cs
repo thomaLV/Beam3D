@@ -19,9 +19,9 @@ namespace Beam3D
         {
         }
         //Initialize moments
-        static int mx = 1;
-        static int my = 1;
-        static int mz = 1;
+        static int mx;
+        static int my;
+        static int mz;
 
 
         //Method to allow c hanging of variables via GUI (see Component Visual)
@@ -133,9 +133,9 @@ namespace Beam3D
                 ButtonBounds3 = rec3;
             }
 
-            GH_Palette xColor = GH_Palette.Black;
-            GH_Palette yColor = GH_Palette.Black;
-            GH_Palette zColor = GH_Palette.Black;
+            GH_Palette xColor = GH_Palette.Grey;
+            GH_Palette yColor = GH_Palette.Grey;
+            GH_Palette zColor = GH_Palette.Grey;
 
             private Rectangle BoundsAllButtons { get; set; }
             private Rectangle ButtonBounds { get; set; }
@@ -187,12 +187,12 @@ namespace Beam3D
                     rec = BoundsAllButtons;
                     if (rec.Contains(e.CanvasLocation))
                     {
-                        if (xColor == GH_Palette.Black) { setMom("MX", 0); }
-                        if (xColor == GH_Palette.Grey) { setMom("MX", 1); }
-                        if (yColor == GH_Palette.Black) { setMom("MY", 0); }
-                        if (yColor == GH_Palette.Grey) { setMom("MY", 1); }
-                        if (zColor == GH_Palette.Black) { setMom("MZ", 0); }
-                        if (zColor == GH_Palette.Grey) { setMom("MZ", 1); }
+                        if (xColor == GH_Palette.Grey) { setMom("MX", 0); }
+                        else { setMom("MX", 1); }
+                        if (yColor == GH_Palette.Grey) { setMom("MY", 0); }
+                        else { setMom("MY", 1); }
+                        if (zColor == GH_Palette.Grey) { setMom("MZ", 0); }
+                        else { setMom("MZ", 1); }
                         Owner.ExpireSolution(true);
                     }
                     return GH_ObjectResponse.Handled;
@@ -214,8 +214,8 @@ namespace Beam3D
                 }
                 else if (button == "MZ")
                 {
-                    if (yColor == GH_Palette.Black) { yColor = GH_Palette.Grey; }
-                    else { yColor = GH_Palette.Black; }
+                    if (zColor == GH_Palette.Black) { zColor = GH_Palette.Grey; }
+                    else { zColor = GH_Palette.Black; }
                 }
                 Owner.ExpireSolution(true);
             }

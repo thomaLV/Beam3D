@@ -90,120 +90,37 @@ namespace Beam3D
 
                 //List all nodes (every node only once), numbering them according to list index
                 List<Point3d> points = CreatePointList(geometry);
+                List<Point3d> newXYZ = new List<Point3d>();
+                List<Point3d> oldXYZ = new List<Point3d>();
+                
 
-
-                #region Create geometry (linear)
-                if (n == 1)
-                {
-                    int index = 0;
-                    //loops through all points and scales x-, y- and z-dir
-
-                    //u(x) = Na, N = shape func, a = nodal values (dof) 
-                    foreach (Point3d point in points)
-                    {
-                        //fetch global x,y,z placement of point
-                        double x = point.X;
-                        double y = point.Y;
-                        double z = point.Z;
-
-                        //scales x and z according to input Scale
-                        defPoints.Add(new Point3d(x + scale * def[index], y + scale * def[index + 1], z + scale * def[index + 2]));
-                        index += 6;
-                    }
-
-                    //creates deformed geometry based on initial geometry placement
-                    foreach (Line line in geometry)
-                    {
-                        //fetches index of original start and endpoint
-                        int i1 = points.IndexOf(line.From);
-                        int i2 = points.IndexOf(line.To);
-
-                        //creates new line based on scaled deformation of said points
-                        var tempL = new Line(defPoints[i1], defPoints[i2]);
-                        defGeometry.Add(tempL.ToNurbsCurve());
-                    }
-
-
-                    //Set output data
-                    DA.SetDataList(0, defGeometry);
-                    return; //return to grasshopper since solved linearly
-                }
-                #endregion
-
-                #region Create geometry
-                Matrix<double> N, B;
+                #region Old
                 foreach (Line line in geometry)
                 {
-                    //fetches index of original start and endpoint
-                    int i1 = points.IndexOf(line.From);
-                    int i2 = points.IndexOf(line.To);
-
-                    //create 12x1 deformation vector for element (6dofs), scaled and populated with existing deformations
-                    var u = Vector<double>.Build.Dense(12);
-                    for (int j = 0; j < 6; j++)
-                    {
-                        u[j] = def[i1*6 + j];
-                        u[j + 6] = def[i2*6 + j];
-                    }
-                    u = scale * u;
-
                     //interpolate points between line.From and line.To
-                    List<Point3d> tempP;
-                    InterpolatePoints(line, n, out tempP);
+                    oldXYZ.AddRange(InterpolatePoints(line, n));
 
-
-                    double L = points[i1].DistanceTo(points[i2]);   //L is distance from startnode to endnode
-                    var x = v.Dense(n + 1);                       //maybe this should be projected x instead???
-                    for (int j = 0; j < n + 1; j++)
+                    for (int i = 0; i < n + 1; i++)
                     {
-                        x[j] = j * L / n;
+                        Point3d tempP = new Point3d();
+                        tempP.X = oldXYZ[i].X + scale * def[i * 6 + 0];
+                        tempP.Y = oldXYZ[i].Y + scale * def[i * 6 + 1];
+                        tempP.Z = oldXYZ[i].Y + scale * def[i * 6 + 2];
+                        newXYZ.Add(tempP);
                     }
-
-
-                    //Calculate 6 dofs for all new elements using shape functions (n+1 elements)
-                    Matrix<double> disp = m.Dense(n + 1, 4);
-                    Matrix<double> rot = m.Dense(n + 1, 4);
-
-                    for (int j = 0; j < n + 1; j++)          //x are points inbetween (?)
-                    {
-                        Shapefunctions(L, x[j], out N, out B);
-                        disp.SetRow(j, N.Multiply(u));
-                        rot.SetRow(j, B.Multiply(u));
-                    }
-
-                    //Calculate new nodal points
-                    for (int j = 0; j < n + 1; j++)
-                    {
-                        //original xyz                        
-                        var tP = tempP[j];
-
-                        //add displacement
-                        //tP.X += disp[j, 0];
-                        //tP.Y += disp[j, 1];
-                        //tP.Z += disp[j, 2];
-
-                        tP.X = tP.X + disp[j, 0] + tP.Z * Math.Cos(Math.PI / 2 - rot[j, 2]) + tP.Y * Math.Cos(Math.PI / 2 - rot[j, 1]);
-                        tP.Y = -Math.Cos(disp[j, 3]) * tP.Y * Math.Sin(Math.PI / 2 - rot[j, 1]) + Math.Sin(disp[j, 3]) * tP.Z + disp[j, 1];
-                        //tP.Z = disp[j, 2] + tP.Z * Math.Sin(rot[j, 2]);
-                        tP.Z = -Math.Sin(disp[j, 3]) * tP.Y + Math.Cos(disp[j, 3]) * tP.Z * Math.Sin(Math.PI / 2 - rot[j, 3]) + disp[j, 2];
-
-                        //replace previous xyz with displaced xyz
-                        tempP[j] = tP;
-                    }
-
                     //Create Nurbscurve based on new nodal points
-                    NurbsCurve nc = NurbsCurve.Create(false, n, tempP);
+                    NurbsCurve nc = NurbsCurve.Create(false, n, newXYZ);
                     defGeometry.Add(nc);
-                }                    
+                }
+                #endregion
                 //Set output data
                 DA.SetDataList(0, defGeometry);
-                #endregion
             }
         }   //End of main program
 
-        private void InterpolatePoints(Line line, int n, out List<Point3d> tempP)
+        private List<Point3d> InterpolatePoints(Line line, int n)
         {
-            tempP = new List<Point3d>(n+1);
+            List<Point3d> tempP = new List<Point3d>(n + 1);
             double[] t = LinSpace(0, 1, n + 1);
             for (int i = 0; i < t.Length; i++)
             {
@@ -211,6 +128,7 @@ namespace Beam3D
                 tPm.Interpolate(line.From, line.To, t[i]);
                 tempP.Add(tPm);
             }
+            return tempP;
         }
 
         private static double[] LinSpace(double x1, double x2, int n)
@@ -224,36 +142,7 @@ namespace Beam3D
             }
             return y;
         }
-
-        private void Shapefunctions(double L, double x, out Matrix<double> N, out Matrix<double> dN)
-        {
-            double N1 = -1 / L * (x - L);
-            double N2 = x / L;
-            double N3 = 1 - 3 * Math.Pow(x,2) / Math.Pow(L, 2) + 2 * Math.Pow(x, 3) / Math.Pow(L,3);
-            double N4 = x * (1 - 2 * x / L + Math.Pow(x, 2) / Math.Pow(L, 2));
-            double N5 = Math.Pow(x, 2) / Math.Pow(L, 2) * (3 - 2 * x / L);
-            double N6 = Math.Pow(x, 2) / L * (x / L - 1);
-
-            N = Matrix<double>.Build.DenseOfArray(new double[,] {
-                { N1, 0, 0,  0,  0,  0, N2, 0,  0,  0,  0,  0},
-                { 0, N3, 0,  0,  0, N4, 0, N5, 0,  0,  0, N6 },
-                { 0, 0, N3, 0, -N4, 0, 0, 0, N5, 0, -N6, 0},
-                { 0, 0, 0, N1, 0, 0, 0, 0, 0, N2, 0, 0} });
-
-            double dN1 = -1 / L;
-            double dN2 = 1 / L;
-            double dN3 = -6 * x / Math.Pow(L, 2) + 6 * Math.Pow(x, 2) / Math.Pow(L,3);
-            double dN4 = 1 - 4 * x / L + 3 * Math.Pow(x, 2) / Math.Pow(L, 2);
-            double dN5 = 6 * x / Math.Pow(L, 2) - 6 * Math.Pow(x, 2) / Math.Pow(L,3);
-            double dN6 = 3 * Math.Pow(x, 2) / Math.Pow(L, 2) - 2 * x / L;
-
-            dN = Matrix<double>.Build.DenseOfArray(new double[,] {
-            { dN1, 0, 0, 0, 0, 0, dN2, 0, 0, 0, 0, 0},
-            { 0, dN3, 0, 0, 0, dN4, 0, dN5, 0, 0, 0, dN6 },
-            { 0, 0, dN3, 0, -dN4, 0, 0, 0, dN5, 0, -dN6, 0},
-            { 0, 0, 0, dN1, 0, 0, 0, 0, 0, dN2, 0, 0} });
-        }
-
+        
         private List<Point3d> CreatePointList(List<Line> geometry)
         {
             List<Point3d> points = new List<Point3d>();
