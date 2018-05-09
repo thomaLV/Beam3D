@@ -178,9 +178,13 @@ namespace Beam3D
                         var tP = tempP[j];
 
                         //add displacement
-                        tP.X = tP.X + disp[j, 0] + tP.Z * Math.Cos(Math.PI / 2 - rot[2, j]) + tP.Y * Math.Cos(Math.PI / 2 - rot[1, j]);
-                        tP.Y = -Math.Cos(disp[3, j]) * tP.Y[j, k] * Math.Sin(Math.PI / 2 - rot[1, j]) + Math.Sin(disp[3, j]) * tP.Z(j, k) + disp[1, j]; ;
-                        tP.Z = -Math.Sin(disp[4, j]) * tP.Y - Math.Cos(disp[4, j]) * z(j, k) * Math.Sin(Math.PI / 2 - rot[3, j]) + disp[3, j];
+                        tP.X += disp[j, 0];
+                        tP.Y += disp[j, 1];
+                        tP.Z += disp[j, 2];
+
+                        //tP.X = tP.X + disp[j, 0] + tP.Z * Math.Cos(Math.PI / 2 - rot[2, j]) + tP.Y * Math.Cos(Math.PI / 2 - rot[1, j]);
+                        //tP.Y = -Math.Cos(disp[3, j]) * tP.Y[j, k] * Math.Sin(Math.PI / 2 - rot[1, j]) + Math.Sin(disp[3, j]) * tP.Z(j, k) + disp[1, j]; ;
+                        //tP.Z = -Math.Sin(disp[4, j]) * tP.Y - Math.Cos(disp[4, j]) * z(j, k) * Math.Sin(Math.PI / 2 - rot[3, j]) + disp[3, j];
 
                         //replace previous xyz with displaced xyz
                         tempP[j] = tP;
