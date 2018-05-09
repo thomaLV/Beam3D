@@ -38,8 +38,8 @@ namespace Beam3D
             {
                 startTest = i;
             }
-            Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
-            Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
+            //Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
+            //Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
         }
 
         public override void CreateAttributes()
@@ -98,7 +98,7 @@ namespace Beam3D
 
 
             //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
-            List<int> bdc_value = CreateBDCList(bdctxt, points);
+            Vector<double> bdc_value = CreateBDCList(bdctxt, points);
 
 
             //Interpreting input load (text) and creating load list (do uble)
@@ -198,14 +198,16 @@ namespace Beam3D
                 internalStresses.AddRange(new double[geometry.Count]);
                 internalStrains = internalStresses;
             }
+
             DA.SetDataList(0, def_tot);
             DA.SetDataList(1, reactions);
             DA.SetDataList(2, internalStresses);
             DA.SetDataList(3, internalStrains);
 
 
-        } //End of main component
 
+        } //End of main component
+        
         private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> points, double E, List<Line> geometry, out List<double> internalStresses, out List<double> internalStrains)
         {
             //preallocating lists
@@ -214,8 +216,8 @@ namespace Beam3D
 
             foreach (Line line in geometry)
             {
-                int index1 = points.IndexOf(new Point3d(Math.Round(line.From.X, 2), Math.Round(line.From.Y, 2), Math.Round(line.From.Z, 2)));
-                int index2 = points.IndexOf(new Point3d(Math.Round(line.To.X, 2), Math.Round(line.To.Y, 2), Math.Round(line.To.Z, 2)));
+                int index1 = points.IndexOf(new Point3d(Math.Round(line.From.X, 4), Math.Round(line.From.Y, 4), Math.Round(line.From.Z, 4)));
+                int index2 = points.IndexOf(new Point3d(Math.Round(line.To.X, 4), Math.Round(line.To.Y, 4), Math.Round(line.To.Z, 4)));
 
                 //fetching deformation of point
                 double x1 = def[index1 * 3 + 0];
@@ -242,7 +244,7 @@ namespace Beam3D
             }
         }
 
-        private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, List<int> bdc_value)
+        private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, Vector<double> bdc_value)
         {
             Vector<double> def = Vector<double>.Build.Dense(bdc_value.Count);
             for (int i = 0, j = 0; i < bdc_value.Count; i++)
@@ -256,7 +258,7 @@ namespace Beam3D
             return def;
         }
 
-        private void CreateReducedGlobalStiffnessMatrix(List<int> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
+        private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
         {
             K_red = Matrix<double>.Build.DenseOfMatrix(K);
             List<double> load_redu = new List<double>(load);
@@ -481,10 +483,10 @@ namespace Beam3D
 
         private void ElementStiffnessMatrix(Line currentLine, double E, double A, double Iy, double Iz, double J, double G, out Point3d p1, out Point3d p2, out Matrix<double> ke)
         {
-            double L = Math.Round(currentLine.Length, 6);
+            double L = Math.Round(currentLine.Length, 10);
 
-            p1 = new Point3d(Math.Round(currentLine.From.X, 2), Math.Round(currentLine.From.Y, 2), Math.Round(currentLine.From.Z, 2));
-            p2 = new Point3d(Math.Round(currentLine.To.X, 2), Math.Round(currentLine.To.Y, 2), Math.Round(currentLine.To.Z, 2));
+            p1 = new Point3d(Math.Round(currentLine.From.X, 4), Math.Round(currentLine.From.Y, 4), Math.Round(currentLine.From.Z, 4));
+            p2 = new Point3d(Math.Round(currentLine.To.X, 4), Math.Round(currentLine.To.Y, 4), Math.Round(currentLine.To.Z, 4));
 
             double alpha = 0;
 
@@ -493,11 +495,11 @@ namespace Beam3D
             double cz = (p2.Z - p1.Z) / L;
             double c1 = Math.Cos(alpha);
             double s1 = Math.Sin(alpha);
-            double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
+            double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 10);
 
             Matrix<double> t;
 
-            if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
+            if (Math.Round(cx, 10) == 0 && Math.Round(cz, 10) == 0)
             {
                 t = Matrix<double>.Build.DenseOfArray(new double[,]
             {
@@ -604,11 +606,11 @@ namespace Beam3D
                 string[] coordstr1 = (coordstr.Split(','));
                 string[] loadstr1 = (loadstr.Split(','));
 
-                inputLoads.Add(Math.Round(double.Parse(loadstr1[0]), 2));
-                inputLoads.Add(Math.Round(double.Parse(loadstr1[1]), 2));
-                inputLoads.Add(Math.Round(double.Parse(loadstr1[2]), 2));
+                inputLoads.Add(Math.Round(double.Parse(loadstr1[0]), 4));
+                inputLoads.Add(Math.Round(double.Parse(loadstr1[1]), 4));
+                inputLoads.Add(Math.Round(double.Parse(loadstr1[2]), 4));
 
-                coordlist.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 2), Math.Round(double.Parse(coordstr1[1]), 2), Math.Round(double.Parse(coordstr1[2]), 2)));
+                coordlist.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 4), Math.Round(double.Parse(coordstr1[1]), 4), Math.Round(double.Parse(coordstr1[2]), 4)));
             }
 
             foreach (Point3d point in coordlist)
@@ -629,12 +631,12 @@ namespace Beam3D
                     string[] coordstr1 = (coordstr.Split(','));
                     string[] loadstr1 = (loadstr.Split(','));
 
-                    inputLoads.Add(Math.Round(double.Parse(loadstr1[0]), 2));
-                    inputLoads.Add(Math.Round(double.Parse(loadstr1[1]), 2));
-                    inputLoads.Add(Math.Round(double.Parse(loadstr1[2]), 2));
+                    inputLoads.Add(Math.Round(double.Parse(loadstr1[0]), 4));
+                    inputLoads.Add(Math.Round(double.Parse(loadstr1[1]), 4));
+                    inputLoads.Add(Math.Round(double.Parse(loadstr1[2]), 4));
 
 
-                    coordlist.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 2), Math.Round(double.Parse(coordstr1[1]), 2), Math.Round(double.Parse(coordstr1[2]), 2)));
+                    coordlist.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 4), Math.Round(double.Parse(coordstr1[1]), 4), Math.Round(double.Parse(coordstr1[2]), 4)));
                 }
 
             foreach (Point3d point in coordlist)
@@ -648,9 +650,9 @@ namespace Beam3D
             return loads;
         }
 
-        private List<int> CreateBDCList(List<string> bdctxt, List<Point3d> points)
+        private Vector<double> CreateBDCList(List<string> bdctxt, List<Point3d> points)
         {
-            List<int> bdc_value = new List<int>(new int[points.Count * 6]);
+            Vector<double> bdc_value = Vector<double>.Build.Dense(points.Count * 6, 1);
             List<int> bdcs = new List<int>();
             List<Point3d> bdc_points = new List<Point3d>(); //Coordinates relating til bdc_value in for (eg. x y z)
 
@@ -663,7 +665,7 @@ namespace Beam3D
                 string[] coordstr1 = (coordstr.Split(','));
                 string[] bdcstr1 = (bdcstr.Split(','));
 
-                bdc_points.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 2), Math.Round(double.Parse(coordstr1[1]), 2), Math.Round(double.Parse(coordstr1[2]), 2)));
+                bdc_points.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 4), Math.Round(double.Parse(coordstr1[1]), 4), Math.Round(double.Parse(coordstr1[2]), 4)));
 
                 bdcs.Add(int.Parse(bdcstr1[0]));
                 bdcs.Add(int.Parse(bdcstr1[1]));
@@ -673,30 +675,16 @@ namespace Beam3D
                 bdcs.Add(int.Parse(bdcstr1[5]));
             }
 
-
             //Format to correct entries in bdc_value
-            for (int i = 0; i < points.Count; i++)
+            foreach (var point in bdc_points)
             {
-                Point3d tempP = points[i];
-
-                if (bdc_points.Contains(tempP))
-                {
-                    bdc_value[i * 6 + 0] = bdcs[bdc_points.IndexOf(tempP) * 6 + 0];
-                    bdc_value[i * 6 + 1] = bdcs[bdc_points.IndexOf(tempP) * 6 + 1];
-                    bdc_value[i * 6 + 2] = bdcs[bdc_points.IndexOf(tempP) * 6 + 2];
-                    bdc_value[i * 6 + 3] = bdcs[bdc_points.IndexOf(tempP) * 6 + 3];
-                    bdc_value[i * 6 + 4] = bdcs[bdc_points.IndexOf(tempP) * 6 + 4];
-                    bdc_value[i * 6 + 5] = bdcs[bdc_points.IndexOf(tempP) * 6 + 5];
-                }
-                else
-                {
-                    bdc_value[i * 6 + 0] = 1;
-                    bdc_value[i * 6 + 1] = 1;
-                    bdc_value[i * 6 + 2] = 1;
-                    bdc_value[i * 6 + 3] = 1;
-                    bdc_value[i * 6 + 4] = 1;
-                    bdc_value[i * 6 + 5] = 1;
-                }
+                int i = points.IndexOf(point);
+                bdc_value[i * 6 + 0] = bdcs[bdc_points.IndexOf(point) * 6 + 0];
+                bdc_value[i * 6 + 1] = bdcs[bdc_points.IndexOf(point) * 6 + 1];
+                bdc_value[i * 6 + 2] = bdcs[bdc_points.IndexOf(point) * 6 + 2];
+                bdc_value[i * 6 + 3] = bdcs[bdc_points.IndexOf(point) * 6 + 3];
+                bdc_value[i * 6 + 4] = bdcs[bdc_points.IndexOf(point) * 6 + 4];
+                bdc_value[i * 6 + 5] = bdcs[bdc_points.IndexOf(point) * 6 + 5];
             }
             return bdc_value;
         }
@@ -705,11 +693,11 @@ namespace Beam3D
         {
             string[] matProp = (mattxt.Split(','));
 
-            E = (Math.Round(double.Parse(matProp[0]), 2));
-            A = (Math.Round(double.Parse(matProp[1]), 2));
-            Iy = (Math.Round(double.Parse(matProp[2]), 2));
-            Iz = (Math.Round(double.Parse(matProp[3]), 2));
-            G = (Math.Round(double.Parse(matProp[4]), 2));
+            E = (Math.Round(double.Parse(matProp[0]), 4));
+            A = (Math.Round(double.Parse(matProp[1]), 4));
+            Iy = (Math.Round(double.Parse(matProp[2]), 4));
+            Iz = (Math.Round(double.Parse(matProp[3]), 4));
+            G = (Math.Round(double.Parse(matProp[4]), 4));
             J = Iy + Iz;
         }
 
@@ -718,8 +706,8 @@ namespace Beam3D
             List<Point3d> points = new List<Point3d>();
             foreach (Line line in geometry) //adds point unless it already exists in pointlist
             {
-                Point3d tempFrom = new Point3d(Math.Round(line.From.X, 2), Math.Round(line.From.Y, 2), Math.Round(line.From.Z, 2));
-                Point3d tempTo = new Point3d(Math.Round(line.To.X, 2), Math.Round(line.To.Y, 2), Math.Round(line.To.Z, 2));
+                Point3d tempFrom = new Point3d(Math.Round(line.From.X, 4), Math.Round(line.From.Y, 4), Math.Round(line.From.Z, 4));
+                Point3d tempTo = new Point3d(Math.Round(line.To.X, 4), Math.Round(line.To.Y, 4), Math.Round(line.To.Z, 4));
 
                 if (!points.Contains(tempFrom))
                 {
@@ -809,6 +797,7 @@ namespace Beam3D
                         switchColor("Run");
                         if (xColor == GH_Palette.Black) { CalcComponent.setStart("Run", true); }
                         if (xColor == GH_Palette.Grey) { CalcComponent.setStart("Run", false); }
+                        Owner.ExpireSolution(true);
                         sender.Refresh();
                         return GH_ObjectResponse.Handled;
                     }
@@ -818,6 +807,7 @@ namespace Beam3D
                         switchColor("Run Test");
                         if (yColor == GH_Palette.Black) { CalcComponent.setStart("Run Test", true); }
                         if (yColor == GH_Palette.Grey) { CalcComponent.setStart("Run Test", false); }
+                        Owner.ExpireSolution(true);
                         sender.Refresh();
                         return GH_ObjectResponse.Handled;
                     }
