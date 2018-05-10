@@ -226,6 +226,7 @@ namespace Beam3D
             List<Point3d> oldXYZ = new List<Point3d>();
             defGeometry = new List<Curve>();    //output deformed geometry
 
+            Matrix<double> deflections = Matrix<double>.Build.Dense(geometry.Count * (n + 1), 4);
             Matrix<double> rotations = Matrix<double>.Build.Dense(geometry.Count * (n + 1), 4);
             def_shape = Vector<double>.Build.Dense(geometry.Count * n * 6 * 2);
             Matrix<double> N, B;
@@ -245,7 +246,7 @@ namespace Beam3D
                     u[j] = def[i1 * 6 + j];
                     u[j + 6] = def[i2 * 6 + j];
                 }
-                //u = scale * u;
+                u = scale * u;
 
                 //interpolate points between line.From and line.To
                 List<Point3d> tempP = InterpolatePoints(line, n);
@@ -268,6 +269,7 @@ namespace Beam3D
                     Shapefunctions(L, x[j], out N, out B);
                     disp.SetRow(j, N.Multiply(u));
                     rot.SetRow(j, B.Multiply(u));
+                    deflections.SetRow(counter + j, disp.Row(j));
                     rotations.SetRow(counter + j, rot.Row(j));
                 }
 
@@ -340,9 +342,9 @@ namespace Beam3D
             //calculate distance from original interpolated points to deformed points
             for (int i = 0; i < oldXYZ.Count; i++)
             {
-                def_shape[i * 6 + 0] = newXYZ[i].X - oldXYZ[i].X;
-                def_shape[i * 6 + 1] = newXYZ[i].Y - oldXYZ[i].Y;
-                def_shape[i * 6 + 2] = newXYZ[i].Z - oldXYZ[i].Z;
+                def_shape[i * 6 + 0] = deflections[i, 0];//newXYZ[i].X - oldXYZ[i].X;
+                def_shape[i * 6 + 1] = deflections[i, 1];//newXYZ[i].Y - oldXYZ[i].Y;
+                def_shape[i * 6 + 2] = deflections[i, 2];//newXYZ[i].Z - oldXYZ[i].Z;
                 def_shape[i * 6 + 3] = rotations[i, 1];
                 def_shape[i * 6 + 4] = rotations[i, 2];
                 def_shape[i * 6 + 5] = rotations[i, 3];
@@ -376,12 +378,12 @@ namespace Beam3D
 
         private void Shapefunctions(double L, double x, out Matrix<double> N, out Matrix<double> dN)
         {
-            double N1 = -1 / L * (x - L);
+            double N1 = 1 - x / L;
             double N2 = x / L;
             double N3 = 1 - 3 * Math.Pow(x, 2) / Math.Pow(L, 2) + 2 * Math.Pow(x, 3) / Math.Pow(L, 3);
-            double N4 = x * (1 - 2 * x / L + Math.Pow(x, 2) / Math.Pow(L, 2));
-            double N5 = Math.Pow(x, 2) / Math.Pow(L, 2) * (3 - 2 * x / L);
-            double N6 = Math.Pow(x, 2) / L * (x / L - 1);
+            double N4 = x - 2 * Math.Pow(x, 2) / L + Math.Pow(x, 3) / Math.Pow(L, 2); //x * (1 - 2 * x / L + Math.Pow(x, 2) / Math.Pow(L, 2));
+            double N5 = -N3 + 1;//3 * Math.Pow(x, 2) / Math.Pow(L, 2) - 2 * Math.Pow(x, 3) / Math.Pow(L, 3);//Math.Pow(x, 2) / Math.Pow(L, 2) * (3 - 2 * x / L);
+            double N6 = Math.Pow(x, 3) / Math.Pow(L, 2) - Math.Pow(x, 2) / L;//Math.Pow(x, 2) / L * (x / L - 1);
 
             N = Matrix<double>.Build.DenseOfArray(new double[,] {
                 { N1, 0, 0,  0,  0,  0, N2, 0,  0,  0,  0,  0},
@@ -392,8 +394,8 @@ namespace Beam3D
             double dN1 = -1 / L;
             double dN2 = 1 / L;
             double dN3 = -6 * x / Math.Pow(L, 2) + 6 * Math.Pow(x, 2) / Math.Pow(L, 3);
-            double dN4 = 1 - 4 * x / L + 3 * Math.Pow(x, 2) / Math.Pow(L, 2);
-            double dN5 = 6 * x / Math.Pow(L, 2) - 6 * Math.Pow(x, 2) / Math.Pow(L, 3);
+            double dN4 = 3 * Math.Pow(x, 2) / Math.Pow(L, 2) - 4 * x / L + 1;//1 - 4 * x / L + 3 * Math.Pow(x, 2) / Math.Pow(L, 2);
+            double dN5 = -dN3;//6 * x / Math.Pow(L, 2) - 6 * Math.Pow(x, 2) / Math.Pow(L, 3);
             double dN6 = 3 * Math.Pow(x, 2) / Math.Pow(L, 2) - 2 * x / L;
 
             dN = Matrix<double>.Build.DenseOfArray(new double[,] {
