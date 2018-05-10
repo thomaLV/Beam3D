@@ -246,7 +246,6 @@ namespace Beam3D
                     u[j] = def[i1 * 6 + j];
                     u[j + 6] = def[i2 * 6 + j];
                 }
-                u = scale * u;
 
                 //interpolate points between line.From and line.To
                 List<Point3d> tempP = InterpolatePoints(line, n);
@@ -262,11 +261,19 @@ namespace Beam3D
 
                 //Calculate 6 dofs for all new elements using shape functions (n+1 elements)
                 Matrix<double> disp = Matrix<double>.Build.Dense(n + 1, 4);
+                Matrix<double> disp1 = Matrix<double>.Build.Dense(n + 1, 4);
                 Matrix<double> rot = Matrix<double>.Build.Dense(n + 1, 4);
+                Matrix<double> rot1 = Matrix<double>.Build.Dense(n + 1, 4);
 
                 for (int j = 0; j < n + 1; j++)          //x are points inbetween (?)
                 {
                     Shapefunctions(L, x[j], out N, out B);
+                    if (scale != 1)
+                    {
+                        var v = scale * u;
+                        disp1.SetRow(j, N.Multiply(v));
+                        rot1.SetRow(j, B.Multiply(v));
+                    }
                     disp.SetRow(j, N.Multiply(u));
                     rot.SetRow(j, B.Multiply(u));
                     deflections.SetRow(counter + j, disp.Row(j));
@@ -274,67 +281,43 @@ namespace Beam3D
                 }
 
                 //Calculate new nodal points
-                for (int j = 0; j < n + 1; j++)
+                if (scale != 1)
                 {
-                    //original xyz                        
-                    var tP = tempP[j];
+                    for (int j = 0; j < n + 1; j++)
+                    {
+                        //original xyz                        
+                        var tP = tempP[j];
 
-                    //calculate new xyz
-                    tP.X = tP.X + disp[j, 0] + tP.Z * Math.Cos(Math.PI / 2 - rot[j, 2]) + tP.Y * Math.Cos(Math.PI / 2 - rot[j, 1]);
-                    tP.Y = -Math.Cos(disp[j, 3]) * tP.Y * Math.Sin(Math.PI / 2 - rot[j, 1]) + Math.Sin(disp[j, 3]) * tP.Z + disp[j, 1];
-                    tP.Z = -Math.Sin(disp[j, 3]) * tP.Y + Math.Cos(disp[j, 3]) * tP.Z * Math.Sin(Math.PI / 2 - rot[j, 3]) + disp[j, 2];
+                        //calculate new xyz
+                        tP.X = tP.X + disp1[j, 0] + tP.Z * Math.Cos(Math.PI / 2 - rot1[j, 2]) + tP.Y * Math.Cos(Math.PI / 2 - rot1[j, 1]);
+                        tP.Y = -Math.Cos(disp1[j, 3]) * tP.Y * Math.Sin(Math.PI / 2 - rot1[j, 1]) + Math.Sin(disp1[j, 3]) * tP.Z + disp1[j, 1];
+                        tP.Z = -Math.Sin(disp1[j, 3]) * tP.Y + Math.Cos(disp1[j, 3]) * tP.Z * Math.Sin(Math.PI / 2 - rot1[j, 3]) + disp1[j, 2];
 
-                    //replace previous xyz with displaced xyz
-                    tempP[j] = tP;
+                        //replace previous xyz with displaced xyz
+                        tempP[j] = tP;
+                    }
+                }
+                else
+                {
+                    for (int j = 0; j < n + 1; j++)
+                    {
+                        //original xyz                        
+                        var tP = tempP[j];
+
+                        //calculate new xyz
+                        tP.X = tP.X + disp[j, 0] + tP.Z * Math.Cos(Math.PI / 2 - rot[j, 2]) + tP.Y * Math.Cos(Math.PI / 2 - rot[j, 1]);
+                        tP.Y = -Math.Cos(disp[j, 3]) * tP.Y * Math.Sin(Math.PI / 2 - rot[j, 1]) + Math.Sin(disp[j, 3]) * tP.Z + disp[j, 1];
+                        tP.Z = -Math.Sin(disp[j, 3]) * tP.Y + Math.Cos(disp[j, 3]) * tP.Z * Math.Sin(Math.PI / 2 - rot[j, 3]) + disp[j, 2];
+
+                        //replace previous xyz with displaced xyz
+                        tempP[j] = tP;
+                    }
                 }
                 #endregion
 
-                #region New
-                //u = scale * u;
-
-                ////interpolate points between line.From and line.To
-                //List<Point3d> tempP = InterpolatePoints(line, n);
-                //oldXYZ.AddRange(tempP);
-
-                //double L = points[i1].DistanceTo(points[i2]);   //L is distance from startnode to endnode
-                //var x = Vector<double>.Build.Dense(n + 1);      //x is vector pieced x += L / n 
-                //for (int j = 0; j < n + 1; j++)
-                //{
-                //    x[j] = j * L / n;
-                //}
-
-
-                ////Calculate 6 dofs for all new elements using shape functions (n+1 elements)
-                //Matrix<double> disp = Matrix<double>.Build.Dense(n + 1, 4);
-                //Matrix<double> rot = Matrix<double>.Build.Dense(n + 1, 4);
-
-                //for (int j = 0; j < n + 1; j++)          //x are points inbetween (?)
-                //{
-                //    Shapefunctions(L, x[j], out N, out B);
-                //    disp.SetRow(j, N.Multiply(u));
-                //    rot.SetRow(j, B.Multiply(u));
-                //    rotations.SetRow(counter + j, rot.Row(j));
-                //}
-
-                ////Calculate new nodal points
-                //for (int j = 0; j < n + 1; j++)
-                //{
-                //    //original xyz                        
-                //    var tP = tempP[j];
-
-                //    //calculate new xyz
-                //    tP.X = tP.X + disp[j, 0] + tP.Z * Math.Cos(Math.PI / 2 - rot[j, 2]) + tP.Y * Math.Cos(Math.PI / 2 - rot[j, 1]);
-                //    tP.Y = -Math.Cos(disp[j, 3]) * tP.Y * Math.Sin(Math.PI / 2 - rot[j, 1]) + Math.Sin(disp[j, 3]) * tP.Z + disp[j, 1];
-                //    tP.Z = -Math.Sin(disp[j, 3]) * tP.Y + Math.Cos(disp[j, 3]) * tP.Z * Math.Sin(Math.PI / 2 - rot[j, 3]) + disp[j, 2];
-
-                //    //replace previous xyz with displaced xyz
-                //    tempP[j] = tP;
-                //}
-                #endregion
                 newXYZ.AddRange(tempP);
 
                 //Create Nurbscurve based on new nodal points
-
                 NurbsCurve nc = NurbsCurve.Create(false, n, tempP);
                 defGeometry.Add(nc);
                 counter++;
