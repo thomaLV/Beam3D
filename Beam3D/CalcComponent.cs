@@ -261,9 +261,9 @@ namespace Beam3D
 
                 //Calculate 6 dofs for all new elements using shape functions (n+1 elements)
                 Matrix<double> disp = Matrix<double>.Build.Dense(n + 1, 4);
-                Matrix<double> disp1 = Matrix<double>.Build.Dense(n + 1, 4);
+                Matrix<double> disp1 = Matrix<double>.Build.Dense(n + 1, 4); //to use if scale != 1
                 Matrix<double> rot = Matrix<double>.Build.Dense(n + 1, 4);
-                Matrix<double> rot1 = Matrix<double>.Build.Dense(n + 1, 4);
+                Matrix<double> rot1 = Matrix<double>.Build.Dense(n + 1, 4); //to use if scale != 1
 
                 for (int j = 0; j < n + 1; j++)          //x are points inbetween (?)
                 {
@@ -382,10 +382,10 @@ namespace Beam3D
             double dN6 = 3 * Math.Pow(x, 2) / Math.Pow(L, 2) - 2 * x / L;
 
             dN = Matrix<double>.Build.DenseOfArray(new double[,] {
-            { dN1, 0, 0, 0, 0, 0, dN2, 0, 0, 0, 0, 0},
-            { 0, dN3, 0, 0, 0, dN4, 0, dN5, 0, 0, 0, dN6 },
-            { 0, 0, dN3, 0, -dN4, 0, 0, 0, dN5, 0, -dN6, 0},
-            { 0, 0, 0, dN1, 0, 0, 0, 0, 0, dN2, 0, 0} });
+                { dN1, 0, 0, 0, 0, 0, dN2, 0, 0, 0, 0, 0},
+                { 0, dN3, 0, 0, 0, dN4, 0, dN5, 0, 0, 0, dN6 },
+                { 0, 0, dN3, 0, -dN4, 0, 0, 0, dN5, 0, -dN6, 0},
+                { 0, 0, 0, dN1, 0, 0, 0, 0, 0, dN2, 0, 0} });
         }
 
         private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> points, double E, List<Line> geometry, out List<double> internalStresses, out List<double> internalStrains)
