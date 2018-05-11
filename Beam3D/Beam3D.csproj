@@ -142,5 +142,6 @@ Erase "$(TargetPath)"</PostBuildEvent>
     </StartArguments>
     <StartAction>Program</StartAction>
     <PlatformTarget>x64</PlatformTarget>
+    <WarningLevel>3</WarningLevel>
   </PropertyGroup>
 </Project>
