@@ -24,7 +24,7 @@ namespace Beam3D
         }
 
         //Initialize moments
-        static bool startCalc = true;
+        static bool startCalc = false;
         static bool startTest = false;
 
         //Method to allow c hanging of variables via GUI (see Component Visual)
@@ -38,8 +38,6 @@ namespace Beam3D
             {
                 startTest = i;
             }
-            Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
-            Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
         }
 
         public override void CreateAttributes()
@@ -988,7 +986,7 @@ namespace Beam3D
                     if (rec.Contains(e.CanvasLocation))
                     {
                         switchColor("Run");
-                        if (xColor == GH_Palette.Black) { CalcComponent.setStart("Run", true); }
+                        if (xColor == GH_Palette.Black) { CalcComponent.setStart("Run", true); Owner.ExpireSolution(true); }
                         if (xColor == GH_Palette.Grey) { CalcComponent.setStart("Run", false); }
                         sender.Refresh();
                         return GH_ObjectResponse.Handled;
@@ -997,7 +995,7 @@ namespace Beam3D
                     if (rec.Contains(e.CanvasLocation))
                     {
                         switchColor("Run Test");
-                        if (yColor == GH_Palette.Black) { CalcComponent.setStart("Run Test", true); }
+                        if (yColor == GH_Palette.Black) { CalcComponent.setStart("Run Test", true); Owner.ExpireSolution(true); }
                         if (yColor == GH_Palette.Grey) { CalcComponent.setStart("Run Test", false); }
                         sender.Refresh();
                         return GH_ObjectResponse.Handled;
