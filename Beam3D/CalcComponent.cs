@@ -104,7 +104,7 @@ namespace Beam3D
 
 
             //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
-            List<int> bdc_value = CreateBDCList(bdctxt, points);
+            Vector<double> bdc_value = CreateBDCList(bdctxt, points);
 
 
             //Interpreting input load (text) and creating load list (do uble)
@@ -474,7 +474,7 @@ namespace Beam3D
             }
         }
 
-        private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, List<int> bdc_value)
+        private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, Vector<double> bdc_value)
         {
             Vector<double> def = Vector<double>.Build.Dense(bdc_value.Count);
             for (int i = 0, j = 0; i < bdc_value.Count; i++)
@@ -488,21 +488,51 @@ namespace Beam3D
             return def;
         }
 
-        private void CreateReducedGlobalStiffnessMatrix(List<int> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
+        private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
         {
-            K_red = Matrix<double>.Build.DenseOfMatrix(K);
-            List<double> load_redu = new List<double>(load);
-            for (int i = 0, j = 0; i < load.Count; i++)
+            int oldRC = load.Count;
+            int newRC = Convert.ToInt16(bdc_value.Sum());
+            K_red = Matrix<double>.Build.Dense(newRC, newRC);
+            load_red = Vector<double>.Build.Dense(newRC, 0);
+            for (int i = 0, ii = 0; i < oldRC; i++)
             {
-                if (bdc_value[i] == 0)
+                //is bdc_value in row i free?
+                if (bdc_value[i] == 1)
                 {
-                    K_red = K_red.RemoveRow(i - j);
-                    K_red = K_red.RemoveColumn(i - j);
-                    load_redu.RemoveAt(i - j);
-                    j++;
+                    for (int j = 0, jj = 0; j < oldRC; j++)
+                    {
+                        //is bdc_value in col j free?
+                        if (bdc_value[j] == 1)
+                        {
+                            //if yes, then add to new K
+                            K_red[i - ii, j - jj] = K[i, j];
+                        }
+                        else
+                        {
+                            //if not, remember to skip 1 column when adding next time
+                            jj++;
+                        }
+                    }
+                    load_red[i - ii] = load[i];
+                }
+                else
+                {                            
+                    //if not, remember to skip 1 row when adding next time
+                    ii++;
                 }
             }
-            load_red = Vector<double>.Build.DenseOfEnumerable(load_redu);
+            //for (int i = 0, j=0; i < size; i++)
+            //{
+            //    //remove clamped dofs
+            //    if (bdc_value[i] == 0)
+            //    {
+            //        K_red = K_red.RemoveRow(i - j);
+            //        K_red = K_red.RemoveColumn(i - j);
+            //        load_redu.RemoveAt(i - j);
+            //        j++;
+            //    }
+            //}
+            //load_red = Vector<double>.Build.DenseOfEnumerable(load_redu);
         }
 
         private static bool IsDiagonalPositive(Matrix<double> A)
@@ -879,9 +909,10 @@ namespace Beam3D
             return loads;
         }
 
-        private List<int> CreateBDCList(List<string> bdctxt, List<Point3d> points)
+        private Vector<double> CreateBDCList(List<string> bdctxt, List<Point3d> points)
         {
-            List<int> bdc_value = new List<int>(new int[points.Count * 6]);
+            //initializing bdc_value as vector of size gdofs, and entry values = 1
+            Vector<double> bdc_value = Vector.Build.Dense(points.Count * 6, 1);
             List<int> bdcs = new List<int>();
             List<Point3d> bdc_points = new List<Point3d>(); //Coordinates relating til bdc_value in for (eg. x y z)
 
@@ -904,34 +935,21 @@ namespace Beam3D
                 bdcs.Add(int.Parse(bdcstr1[5]));
             }
 
-
             //Format to correct entries in bdc_value
-            for (int i = 0; i < points.Count; i++)
+            foreach (var point in bdc_points)
             {
-                Point3d tempP = points[i];
-
-                if (bdc_points.Contains(tempP))
-                {
-                    bdc_value[i * 6 + 0] = bdcs[bdc_points.IndexOf(tempP) * 6 + 0];
-                    bdc_value[i * 6 + 1] = bdcs[bdc_points.IndexOf(tempP) * 6 + 1];
-                    bdc_value[i * 6 + 2] = bdcs[bdc_points.IndexOf(tempP) * 6 + 2];
-                    bdc_value[i * 6 + 3] = bdcs[bdc_points.IndexOf(tempP) * 6 + 3];
-                    bdc_value[i * 6 + 4] = bdcs[bdc_points.IndexOf(tempP) * 6 + 4];
-                    bdc_value[i * 6 + 5] = bdcs[bdc_points.IndexOf(tempP) * 6 + 5];
-                }
-                else
-                {
-                    bdc_value[i * 6 + 0] = 1;
-                    bdc_value[i * 6 + 1] = 1;
-                    bdc_value[i * 6 + 2] = 1;
-                    bdc_value[i * 6 + 3] = 1;
-                    bdc_value[i * 6 + 4] = 1;
-                    bdc_value[i * 6 + 5] = 1;
-                }
+                int globalI = points.IndexOf(point);
+                int localI = bdc_points.IndexOf(point);
+                bdc_value[globalI * 6 + 0] = bdcs[localI * 6 + 0];
+                bdc_value[globalI * 6 + 1] = bdcs[localI * 6 + 1];
+                bdc_value[globalI * 6 + 2] = bdcs[localI * 6 + 2];
+                bdc_value[globalI * 6 + 3] = bdcs[localI * 6 + 3];
+                bdc_value[globalI * 6 + 4] = bdcs[localI * 6 + 4];
+                bdc_value[globalI * 6 + 5] = bdcs[localI * 6 + 5];
             }
             return bdc_value;
         }
-
+        
         private void SetMaterial(string mattxt, out double E, out double A, out double Iy, out double Iz, out double J, out double G)
         {
             string[] matProp = (mattxt.Split(','));
