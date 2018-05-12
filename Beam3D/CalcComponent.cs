@@ -63,6 +63,7 @@ namespace Beam3D
             pManager.AddNumberParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
             pManager.AddNumberParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
             pManager.AddCurveParameter("NurbsCurves", "Crv", "Deformed Geometry", GH_ParamAccess.list);
+            pManager.AddPointParameter("Points", "P", "Ordered list of deformed points (original xyz)", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -203,7 +204,7 @@ namespace Beam3D
             {
                 def_tot = Vector<double>.Build.Dense(points.Count*6);
                 reactions = def_tot;
-                def_shape = Matrix<double>.Build.Dense(points.Count, 2 * 6 * n);
+                def_shape = Matrix<double>.Build.Dense(geometry.Count, 2 * 6 * n);
 
                 internalStresses = new List<double>(geometry.Count);
                 internalStresses.AddRange(new double[geometry.Count]);
@@ -218,6 +219,7 @@ namespace Beam3D
             //DA.SetDataList(2, internalStresses);
             //DA.SetDataList(3, internalStrains);
             DA.SetDataList(4, defGeometry);
+            DA.SetDataList(5, points);
 
 
         } //End of main component
@@ -239,13 +241,11 @@ namespace Beam3D
 
         private void InterpolateDeformations(Vector<double> def, List<Point3d> points, List<Line> geometry, int n, int scale, out Matrix<double> def_shape, out List<Curve> defGeometry)
         {
-            List<Point3d> newXYZ = new List<Point3d>();
-            List<Point3d> oldXYZ = new List<Point3d>();
             defGeometry = new List<Curve>();    //output deformed geometry
 
             //Matrix<double> deflections = Matrix<double>.Build.Dense(geometry.Count * (n + 1), 4);
             //Matrix<double> rotations = Matrix<double>.Build.Dense(geometry.Count * (n + 1), 4);
-            def_shape = Matrix<double>.Build.Dense(points.Count, n * 6 * 2);
+            def_shape = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 6);
             Matrix<double> N, B;
             Vector<double> u = Vector<double>.Build.Dense(12);
             Vector<double> v = Vector<double>.Build.Dense(12);
@@ -257,7 +257,7 @@ namespace Beam3D
                 //fetches index of original start and endpoint
                 int i1 = points.IndexOf(line.From);
                 int i2 = points.IndexOf(line.To);
-                
+
                 //create 12x1 deformation vector for element (6dofs), scaled and populated with existing deformations
                 for (int j = 0; j < 6; j++)
                 {
@@ -273,7 +273,7 @@ namespace Beam3D
 
                 //interpolate points between line.From and line.To
                 List<Point3d> tempP = InterpolatePoints(line, n);
-                oldXYZ.AddRange(tempP);
+                List<Point3d> oldXYZ = new List<Point3d>(tempP);
 
                 double L = points[i1].DistanceTo(points[i2]);   //L is distance from startnode to endnode
                 var x = Vector<double>.Build.Dense(n + 1);      //x is vector pieced x += L / n 
@@ -304,12 +304,12 @@ namespace Beam3D
                     //deflections.SetRow(counter + j, disp.Row(j));
                     //rotations.SetRow(counter + j, rot.Row(j));
 
-                    def_shape[i1, i * 6 + 0] = disp[i, 0];//newXYZ[i].X - oldXYZ[i].X;
-                    def_shape[i1, i * 6 + 1] = disp[i, 1];//newXYZ[i].Y - oldXYZ[i].Y;
-                    def_shape[i1, i * 6 + 2] = disp[i, 2];//newXYZ[i].Y - oldXYZ[i].Y;
-                    def_shape[i1, i * 6 + 3] = rot[i, 0];
-                    def_shape[i1, i * 6 + 4] = rot[i, 1];
-                    def_shape[i1, i * 6 + 5] = rot[i, 2];
+                    //def_shape[i1, i * 6 + 0] = disp[i, 0];//newXYZ[i].X - oldXYZ[i].X;
+                    //def_shape[i1, i * 6 + 1] = disp[i, 1];//newXYZ[i].Y - oldXYZ[i].Y;
+                    //def_shape[i1, i * 6 + 2] = disp[i, 2];//newXYZ[i].Y - oldXYZ[i].Y;
+                    //def_shape[i1, i * 6 + 3] = disp[i, 3];
+                    //def_shape[i1, i * 6 + 4] = rot[i, 2];
+                    //def_shape[i1, i * 6 + 5] = rot[i, 1];
                 }
 
 
@@ -321,10 +321,14 @@ namespace Beam3D
                         //original xyz                        
                         var tP = tempP[i];
 
+                        //  x + nx + z*cos(90-rot_z) + y*cos(90-rot_y)
+                        // -y*cos(n4)*sin(90-rot_y) + z*sin(n4) + ny
+                        // -y*sin(n4) + z*cos(n4)*sin(90-n4) + nz
+
                         //calculate new xyz
                         tP.X = tP.X + disp1[i, 0] + tP.Z * Math.Cos(Math.PI / 2 - rot1[i, 2]) + tP.Y * Math.Cos(Math.PI / 2 - rot1[i, 1]);
                         tP.Y = -Math.Cos(disp1[i, 3]) * tP.Y * Math.Sin(Math.PI / 2 - rot1[i, 1]) + Math.Sin(disp1[i, 3]) * tP.Z + disp1[i, 1];
-                        tP.Z = tP.Z + tP.Z * Math.Sin(rot[i, 2]);//-Math.Sin(disp1[i, 3]) * tP.Y + Math.Cos(disp1[i, 3]) * tP.Z * Math.Sin(Math.PI / 2 - rot1[i, 3]) + disp1[i, 2];
+                        tP.Z = -Math.Sin(disp1[i, 3]) * tP.Y + Math.Cos(disp1[i, 3]) * tP.Z * Math.Sin(Math.PI / 2 - rot1[i, 3]) + disp1[i, 2]; //tP.Z + tP.Z * Math.Sin(rot[i, 2]);
 
                         //replace previous xyz with displaced xyz
                         tempP[i] = tP;
@@ -346,24 +350,33 @@ namespace Beam3D
                         tempP[i] = tP;
                     }
                 }
-                newXYZ.AddRange(tempP);
-
                 //Create Nurbscurve based on new nodal points
                 NurbsCurve nc = NurbsCurve.Create(false, n, tempP);
                 defGeometry.Add(nc);
+
+                //add deformation to def_shape
+                def_shape.SetRow(counter, CalcDef(oldXYZ, tempP, disp, rot));
                 counter++;
             }
-            ////calculate distance from original interpolated points to deformed points
-            //for (int i = 0; i < oldXYZ.Count; i++)
-            //{
-            //    def_shape[i * 6 + 0] = deflections[i, 0];//newXYZ[i].X - oldXYZ[i].X;
-            //    def_shape[i * 6 + 1] = deflections[i, 1];//newXYZ[i].Y - oldXYZ[i].Y;
-            //    def_shape[i * 6 + 2] = deflections[i, 2];//newXYZ[i].Z - oldXYZ[i].Z;
-            //    def_shape[i * 6 + 3] = rotations[i, 1];
-            //    def_shape[i * 6 + 4] = rotations[i, 2];
-            //    def_shape[i * 6 + 5] = rotations[i, 3];
-            //}
         }
+
+        private double[] CalcDef(List<Point3d> oldXYZ, List<Point3d> newXYZ, Matrix<double> disp, Matrix<double> rot)
+        {
+            double[] def_e = new double[oldXYZ.Count * 6];
+            for (int i = 0; i < oldXYZ.Count; i++)
+            {
+                //calculate distance from original interpolated points to deformed points
+                def_e[i * 6 + 0] = newXYZ[i].X - oldXYZ[i].X;
+                def_e[i * 6 + 1] = newXYZ[i].Y + oldXYZ[i].Y;
+                def_e[i * 6 + 2] = newXYZ[i].Z - oldXYZ[i].Z;
+                //add already correct rotations
+                def_e[i * 6 + 3] = disp[i, 3];
+                def_e[i * 6 + 4] = rot[i, 2]; //theta_y = d_uz/d_x
+                def_e[i * 6 + 5] = rot[i, 1]; //theta_z = d_uy/d_x
+            }
+            return def_e;
+        }
+        
 
         private List<Point3d> InterpolatePoints(Line line, int n)
         {
@@ -395,9 +408,9 @@ namespace Beam3D
             double N1 = 1 - x / L;
             double N2 = x / L;
             double N3 = 1 - 3 * Math.Pow(x, 2) / Math.Pow(L, 2) + 2 * Math.Pow(x, 3) / Math.Pow(L, 3);
-            double N4 = x - 2 * Math.Pow(x, 2) / L + Math.Pow(x, 3) / Math.Pow(L, 2); //x * (1 - 2 * x / L + Math.Pow(x, 2) / Math.Pow(L, 2));
-            double N5 = -N3 + 1;//3 * Math.Pow(x, 2) / Math.Pow(L, 2) - 2 * Math.Pow(x, 3) / Math.Pow(L, 3);//Math.Pow(x, 2) / Math.Pow(L, 2) * (3 - 2 * x / L);
-            double N6 = Math.Pow(x, 3) / Math.Pow(L, 2) - Math.Pow(x, 2) / L;//Math.Pow(x, 2) / L * (x / L - 1);
+            double N4 = x - 2 * Math.Pow(x, 2) / L + Math.Pow(x, 3) / Math.Pow(L, 2);
+            double N5 = -N3 + 1;//3 * Math.Pow(x, 2) / Math.Pow(L, 2) - 2 * Math.Pow(x, 3) / Math.Pow(L, 3);
+            double N6 = Math.Pow(x, 3) / Math.Pow(L, 2) - Math.Pow(x, 2) / L;
 
             N = Matrix<double>.Build.DenseOfArray(new double[,] {
                 { N1, 0, 0,  0,  0,  0, N2, 0,  0,  0,  0,  0},
@@ -405,10 +418,13 @@ namespace Beam3D
                 { 0, 0, N3, 0, -N4, 0, 0, 0, N5, 0, -N6, 0},
                 { 0, 0, 0, N1, 0, 0, 0, 0, 0, N2, 0, 0} });
 
+            //u = N*v, where v = nodal deformation values [u1, u2, u3, u4, u5, u6, u7, u8, u9, u10, u11, u12]
+            //u = [ux, uy, uz, theta_x]
+
             double dN1 = -1 / L;
             double dN2 = 1 / L;
             double dN3 = -6 * x / Math.Pow(L, 2) + 6 * Math.Pow(x, 2) / Math.Pow(L, 3);
-            double dN4 = 3 * Math.Pow(x, 2) / Math.Pow(L, 2) - 4 * x / L + 1;//1 - 4 * x / L + 3 * Math.Pow(x, 2) / Math.Pow(L, 2);
+            double dN4 = 3 * Math.Pow(x, 2) / Math.Pow(L, 2) - 4 * x / L + 1;
             double dN5 = -dN3;//6 * x / Math.Pow(L, 2) - 6 * Math.Pow(x, 2) / Math.Pow(L, 3);
             double dN6 = 3 * Math.Pow(x, 2) / Math.Pow(L, 2) - 2 * x / L;
 
@@ -417,6 +433,9 @@ namespace Beam3D
                 { 0, dN3, 0, 0, 0, dN4, 0, dN5, 0, 0, 0, dN6 },
                 { 0, 0, dN3, 0, -dN4, 0, 0, 0, dN5, 0, -dN6, 0},
                 { 0, 0, 0, dN1, 0, 0, 0, 0, 0, dN2, 0, 0} });
+
+            //theta_y = du_z/dx
+            //theta_z = du_y/dx
         }
 
         private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> points, double E, List<Line> geometry, out List<double> internalStresses, out List<double> internalStrains)
