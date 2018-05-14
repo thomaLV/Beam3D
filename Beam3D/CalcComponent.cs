@@ -288,61 +288,51 @@ namespace Beam3D
 
                 //Calculate 6 dofs for all new elements using shape functions (n+1 elements)
                 Matrix<double> disp = Matrix<double>.Build.Dense(n + 1, 4);
-                Matrix<double> disp1 = Matrix<double>.Build.Dense(n + 1, 4); //to use if scale != 1
                 Matrix<double> rot = Matrix<double>.Build.Dense(n + 1, 4);
-                Matrix<double> rot1 = Matrix<double>.Build.Dense(n + 1, 4); //to use if scale != 1
+                
+                //to show scaled deformations
+                Matrix<double> scale_disp = Matrix<double>.Build.Dense(n + 1, 4);
+                Matrix<double> scale_rot = Matrix<double>.Build.Dense(n + 1, 4); 
 
 
                 for (int i = 0; i < n + 1; i++)          //x are points inbetween (?)
                 {
                     Shapefunctions(L, x[i], out N, out B);
-                    if (scale != 1)
-                    {
-                        disp1.SetRow(i, N.Multiply(v));
-                        rot1.SetRow(i, B.Multiply(v));
-                    }
+
                     disp.SetRow(i, N.Multiply(u));
                     rot.SetRow(i, B.Multiply(u));
+                    //if (scale != 1)
+                    //{
+                    //    disp1.SetRow(i, N.Multiply(v));
+                    //    rot1.SetRow(i, B.Multiply(v));
+                    //}
                 }
 
+                scale_disp = scale * disp;
+                scale_rot = scale * rot;
+                
+                var tf = TransformationMatrix(tempOld[0], tempOld[1], 0);
 
                 //Calculate new nodal points
-                if (scale != 1)
+                for (int i = 0; i < n + 1; i++)
                 {
-                    for (int i = 0; i < n + 1; i++)
-                    {
-                        //original xyz                        
-                        var tP = tempNew[i];
+                    //original xyz                        
+                    var tP = tempNew[i];
 
-                        //  x + nx + z*cos(90-rot_z) + y*cos(90-rot_y)
-                        // -y*cos(n4)*sin(90-rot_y) + z*sin(n4) + ny
-                        // -y*sin(n4) + z*cos(n4)*sin(90-n4) + nz
+                    //  x + z*cos(90-rot_z) + y*cos(90-rot_y) + nx
+                    // -y*cos(n4)*sin(90-rot_y) + z*sin(n4) + ny
+                    // -y*sin(n4) + z*cos(n4)*sin(90-n4) + nz
 
-                        //calculate new xyz
-                        tP.X = tP.X + disp1[i, 0] + tP.Z * Math.Cos(Math.PI / 2 - rot1[i, 2]) + tP.Y * Math.Cos(Math.PI / 2 - rot1[i, 1]);
-                        tP.Y = -Math.Cos(disp1[i, 3]) * tP.Y * Math.Sin(Math.PI / 2 - rot1[i, 1]) + Math.Sin(disp1[i, 3]) * tP.Z + disp1[i, 1];
-                        tP.Z = -Math.Sin(disp1[i, 3]) * tP.Y + Math.Cos(disp1[i, 3]) * tP.Z * Math.Sin(Math.PI / 2 - rot1[i, 3]) + disp1[i, 2]; //tP.Z + tP.Z * Math.Sin(rot[i, 2]);
+                    
+                    //calculate new xyz
+                    tP.X = tP.X + scale_disp[i, 0] + tP.Z * Math.Cos(Math.PI / 2 - scale_rot[i, 2]) + tP.Y * Math.Cos(Math.PI / 2 - scale_rot[i, 1]);
+                    tP.Y = -Math.Cos(scale_disp[i, 3]) * tP.Y * Math.Sin(Math.PI / 2 - scale_rot[i, 1]) + Math.Sin(scale_disp[i, 3]) * tP.Z + scale_disp[i, 1];
+                    tP.Z = -Math.Sin(scale_disp[i, 3]) * tP.Y + Math.Cos(scale_disp[i, 3]) * tP.Z * Math.Sin(Math.PI / 2 - scale_rot[i, 3]) + scale_disp[i, 2]; //tP.Z + tP.Z * Math.Sin(rot[i, 2]);
 
-                        //replace previous xyz with displaced xyz
-                        tempNew[i] = tP;
-                    }
+                    //replace previous xyz with displaced xyz
+                    tempNew[i] = tP;
                 }
-                else
-                {
-                    for (int i = 0; i < n + 1; i++)
-                    {
-                        //original xyz                        
-                        var tP = tempNew[i];
 
-                        //calculate new xyz
-                        tP.X = tP.X + disp[i, 0] + tP.Z * Math.Cos(Math.PI / 2 - rot[i, 2]) + tP.Y * Math.Cos(Math.PI / 2 - rot[i, 1]);
-                        tP.Y = -Math.Cos(disp[i, 3]) * tP.Y * Math.Sin(Math.PI / 2 - rot[i, 1]) + Math.Sin(disp[i, 3]) * tP.Z + disp[i, 1];
-                        tP.Z = -Math.Sin(disp[i, 3]) * tP.Y + Math.Cos(disp[i, 3]) * tP.Z * Math.Sin(Math.PI / 2 - rot[i, 3]) + disp[i, 2];
-
-                        //replace previous xyz with displaced xyz
-                        tempNew[i] = tP;
-                    }
-                }
                 //Create Nurbscurve based on new nodal points
                 NurbsCurve nc = NurbsCurve.Create(false, n, tempNew);
                 defGeometry.Add(nc);
@@ -353,6 +343,44 @@ namespace Beam3D
                 def_shape.SetRow(counter, SetDef(tempOld, tempNew, disp, rot));
                 counter++;
             }
+        }
+
+        private Matrix<double> TransformationMatrix(Point3d p1, Point3d p2, double alpha)
+        {
+            double L = p1.DistanceTo(p2);
+
+            double cx = (p2.X - p1.X) / L;
+            double cy = (p2.Y - p1.Y) / L;
+            double cz = (p2.Z - p1.Z) / L;
+            double c1 = Math.Cos(alpha);
+            double s1 = Math.Sin(alpha);
+            double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
+
+            Matrix<double> t;
+
+            if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
+            {
+                t = Matrix<double>.Build.DenseOfArray(new double[,]
+            {
+                    {      0, cy,  0},
+                    { -cy*c1,  0, s1},
+                    {  cy*s1,  0, c1},
+            });
+            }
+            else
+            {
+                t = Matrix<double>.Build.DenseOfArray(new double[,]
+            {
+                    {                     cx,       cy,                   cz},
+                    {(-cx*cy*c1 - cz*s1)/cxz,   cxz*c1,(-cy*cz*c1+cx*s1)/cxz},
+                    {   (cx*cy*s1-cz*c1)/cxz,  -cxz*s1, (cy*cz*s1+cx*c1)/cxz},
+            });
+            }
+
+            ////12 dofs -> 12x12 T matrix
+            //var T = t.DiagonalStack(t);
+            //T = T.DiagonalStack(T);
+            return t;
         }
 
         private double[] SetDef(List<Point3d> oldXYZ, List<Point3d> newXYZ, Matrix<double> disp, Matrix<double> rot)
@@ -740,44 +768,15 @@ namespace Beam3D
             return A;
         }
 
-        private void ElementStiffnessMatrix(Line currentLine, double E, double A, double Iy, double Iz, double J, double G, out Point3d p1, out Point3d p2, out Matrix<double> K_elem)
+        private void ElementStiffnessMatrix(Line currentLine, double E, double A, double Iy, double Iz, double J, double G, out Point3d p1, out Point3d p2, out Matrix<double> Ke)
         {
             double L = Math.Round(currentLine.Length, 6);
 
             p1 = new Point3d(Math.Round(currentLine.From.X, 2), Math.Round(currentLine.From.Y, 2), Math.Round(currentLine.From.Z, 2));
             p2 = new Point3d(Math.Round(currentLine.To.X, 2), Math.Round(currentLine.To.Y, 2), Math.Round(currentLine.To.Z, 2));
 
-            double alpha = 0;
-
-            double cx = (p2.X - p1.X) / L;
-            double cy = (p2.Y - p1.Y) / L;
-            double cz = (p2.Z - p1.Z) / L;
-            double c1 = Math.Cos(alpha);
-            double s1 = Math.Sin(alpha);
-            double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
-
-            Matrix<double> t;
-
-            if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
-            {
-                t = Matrix<double>.Build.DenseOfArray(new double[,]
-            {
-                    {      0, cy,  0},
-                    { -cy*c1,  0, s1},
-                    {  cy*s1,  0, c1},
-            });
-            }
-            else
-            {
-                t = Matrix<double>.Build.DenseOfArray(new double[,]
-            {
-                    {                     cx,       cy,                   cz},
-                    {(-cx*cy*c1 - cz*s1)/cxz,   cxz*c1,(-cy*cz*c1+cx*s1)/cxz},
-                    {   (cx*cy*s1-cz*c1)/cxz,  -cxz*s1, (cy*cz*s1+cx*c1)/cxz},
-            });
-            }
-
-            var T = t.DiagonalStack(t);
+            Matrix<double> tf = TransformationMatrix(p1, p2, 0);
+            var T = tf.DiagonalStack(tf);
             T = T.DiagonalStack(T);
 
             Matrix<double> T_T = T.Transpose();
@@ -796,7 +795,7 @@ namespace Beam3D
 
             double C1 = (G * J) / L;
 
-            K_elem = DenseMatrix.OfArray(new double[,]
+            Matrix<double> ke = DenseMatrix.OfArray(new double[,]
             {
                     { A1,    0,    0,    0,    0,    0,  -A1,    0,    0,    0,    0,    0 },
                     {  0,  kz1,    0,    0,    0,  kz2,    0, -kz1,    0,    0,    0,  kz2 },
@@ -812,8 +811,8 @@ namespace Beam3D
                     {  0,  kz2,    0,    0,    0,  kz4,    0, -kz2,    0,    0,    0,  kz3 },
             });
 
-            K_elem = K_elem.Multiply(T);
-            K_elem = T_T.Multiply(K_elem);
+            ke = ke.Multiply(T);
+            Ke = T_T.Multiply(ke);
         }
 
         private Matrix<double> GlobalStiffnessMatrix(List<Line> geometry, List<Point3d> points, double E, double A, double Iy, double Iz, double J, double G)
