@@ -287,10 +287,10 @@ namespace Beam3D
                 Matrix<double> scale_disp = Matrix<double>.Build.Dense(n + 1, 4);
                 Matrix<double> scale_rot = Matrix<double>.Build.Dense(n + 1, 4);
 
-                var tf = TransformationMatrix(line.From, line.To, 0);
-                var T = tf.DiagonalStack(tf);
-                T = T.DiagonalStack(T);
-                u = T * u;
+                //var tf = TransformationMatrix(line.From, line.To, 0);
+                //var T = tf.DiagonalStack(tf);
+                //T = T.DiagonalStack(T);
+                //u = T * u;
 
                 //prepare deformation vector for scaled results (for drawing of deformed geometry)
                 if (scale != 1)
@@ -310,13 +310,27 @@ namespace Beam3D
                         scale_rot.SetRow(i, B.Multiply(v));
                     }
                 }
-                
+
+                var tf = TransformationMatrix(line.From, line.To, 0);
+                var T = tf.DiagonalStack(tf);
+                T = T.DiagonalStack(T);
+
+                //var scale_disp2 = Matrix<double>.Build.DenseOfMatrix(scale_disp);
+                //scale_disp.RemoveRow(3);
+
+                //scale_disp = tf * scale_disp;
+                ////scale_rot = T.Transpose() * scale_rot;
 
                 //Calculate new nodal points
                 for (int i = 0; i < n + 1; i++)
                 {
                     //original xyz                        
                     var tP = tempNew[i];
+
+                    //tP.X = tP.X + scale_disp[i, 1];
+                    //tP.Y = tP.Y - scale_disp[i, 1];
+                    //tP.Z = tP.Z + scale_disp[i, 2]; //tP.Z + tP.Z * Math.Sin(rot[i, 2]);
+
 
                     //  x + z*cos(90-rot_z) + y*cos(90-rot_y) + nx
                     // -y*cos(n4)*sin(90-rot_y) + z*sin(n4) + ny
