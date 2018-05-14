@@ -198,7 +198,7 @@ namespace Beam3D
                 InterpolateDeformations(def_tot, points, geometry, n, scale, out def_shape, out defGeometry, out newXYZ, out oldXYZ);
 
                 //Calculate the internal strains and stresses in each member
-                CalculateInternalStrainsAndStresses(def_shape, newXYZ, oldXYZ, E, geometry, n, out internalStresses, out internalStrains);
+                //CalculateInternalStrainsAndStresses(def_shape, newXYZ, oldXYZ, E, geometry, n, out internalStresses, out internalStrains);
                 #endregion
             }
             else
@@ -217,8 +217,8 @@ namespace Beam3D
 
             DA.SetDataTree(0, def_shape_nested);
             DA.SetDataList(1, reactions);
-            DA.SetDataList(2, internalStresses);
-            DA.SetDataList(3, internalStrains);
+            //DA.SetDataList(2, internalStresses);
+            //DA.SetDataList(3, internalStrains);
             DA.SetDataList(4, defGeometry);
             DA.SetDataList(5, points);
 
@@ -267,13 +267,7 @@ namespace Beam3D
                     u[j] = def[i1 * 6 + j];
                     u[j + 6] = def[i2 * 6 + j];
                 }
-
-                //prepare deformation vector for scaled results (for drawing of deformed geometry)
-                if (scale != 1)
-                {
-                    v = scale * u;
-                }
-
+                
                 //interpolate points between line.From and line.To
                 List<Point3d> tempNew = InterpolatePoints(line, n);
                 List<Point3d> tempOld = new List<Point3d>(tempNew);
@@ -285,15 +279,24 @@ namespace Beam3D
                     x[j] = j * L / n;
                 }
 
-
                 //Calculate 6 dofs for all new elements using shape functions (n+1 elements)
                 Matrix<double> disp = Matrix<double>.Build.Dense(n + 1, 4);
                 Matrix<double> rot = Matrix<double>.Build.Dense(n + 1, 4);
                 
                 //to show scaled deformations
                 Matrix<double> scale_disp = Matrix<double>.Build.Dense(n + 1, 4);
-                Matrix<double> scale_rot = Matrix<double>.Build.Dense(n + 1, 4); 
+                Matrix<double> scale_rot = Matrix<double>.Build.Dense(n + 1, 4);
 
+                var tf = TransformationMatrix(line.From, line.To, 0);
+                var T = tf.DiagonalStack(tf);
+                T = T.DiagonalStack(T);
+                u = T * u;
+
+                //prepare deformation vector for scaled results (for drawing of deformed geometry)
+                if (scale != 1)
+                {
+                    v = scale * u;
+                }
 
                 for (int i = 0; i < n + 1; i++)          //x are points inbetween (?)
                 {
@@ -301,17 +304,13 @@ namespace Beam3D
 
                     disp.SetRow(i, N.Multiply(u));
                     rot.SetRow(i, B.Multiply(u));
-                    //if (scale != 1)
-                    //{
-                    //    disp1.SetRow(i, N.Multiply(v));
-                    //    rot1.SetRow(i, B.Multiply(v));
-                    //}
+                    if (scale != 1)
+                    {
+                        scale_disp.SetRow(i, N.Multiply(v));
+                        scale_rot.SetRow(i, B.Multiply(v));
+                    }
                 }
-
-                scale_disp = scale * disp;
-                scale_rot = scale * rot;
                 
-                var tf = TransformationMatrix(tempOld[0], tempOld[1], 0);
 
                 //Calculate new nodal points
                 for (int i = 0; i < n + 1; i++)
@@ -323,10 +322,10 @@ namespace Beam3D
                     // -y*cos(n4)*sin(90-rot_y) + z*sin(n4) + ny
                     // -y*sin(n4) + z*cos(n4)*sin(90-n4) + nz
 
-                    
+
                     //calculate new xyz
-                    tP.X = tP.X + scale_disp[i, 0] + tP.Z * Math.Cos(Math.PI / 2 - scale_rot[i, 2]) + tP.Y * Math.Cos(Math.PI / 2 - scale_rot[i, 1]);
-                    tP.Y = -Math.Cos(scale_disp[i, 3]) * tP.Y * Math.Sin(Math.PI / 2 - scale_rot[i, 1]) + Math.Sin(scale_disp[i, 3]) * tP.Z + scale_disp[i, 1];
+                    tP.X = tP.X + scale_disp[i, 0] + tP.Y * Math.Cos(Math.PI / 2 - scale_rot[i, 1]) + tP.Z * Math.Cos(Math.PI / 2 - scale_rot[i, 2]);
+                    tP.Y = Math.Cos(scale_disp[i, 3]) * tP.Y * Math.Sin(Math.PI / 2 + scale_rot[i, 1]) + Math.Sin(scale_disp[i, 3]) * tP.Z - scale_disp[i, 1];
                     tP.Z = -Math.Sin(scale_disp[i, 3]) * tP.Y + Math.Cos(scale_disp[i, 3]) * tP.Z * Math.Sin(Math.PI / 2 - scale_rot[i, 3]) + scale_disp[i, 2]; //tP.Z + tP.Z * Math.Sin(rot[i, 2]);
 
                     //replace previous xyz with displaced xyz
