@@ -331,6 +331,8 @@ namespace Beam3D
                     //tP.Y = tP.Y - scale_disp[i, 1];
                     //tP.Z = tP.Z + scale_disp[i, 2]; //tP.Z + tP.Z * Math.Sin(rot[i, 2]);
 
+                    Debug.WriteLine(disp.ToString());
+                    Debug.WriteLine(rot.ToString());
 
                     //  x + z*cos(90-rot_z) + y*cos(90-rot_y) + nx
                     // -y*cos(n4)*sin(90-rot_y) + z*sin(n4) + ny
@@ -338,16 +340,19 @@ namespace Beam3D
 
 
                     //calculate new xyz
-                    tP.X = tP.X + scale_disp[i, 0] + tP.Y * Math.Cos(Math.PI / 2 - scale_rot[i, 1]) + tP.Z * Math.Cos(Math.PI / 2 - scale_rot[i, 2]);
+                    tP.X = tP.X + scale_disp[i, 0] + tP.Y * Math.Cos(Math.PI / 2 - scale_rot[i, 1]) + tP.Z * Math.Cos(Math.PI / 2 - scale_rot[i, 3]);
                     tP.Y = Math.Cos(scale_disp[i, 3]) * tP.Y * Math.Sin(Math.PI / 2 + scale_rot[i, 1]) + Math.Sin(scale_disp[i, 3]) * tP.Z - scale_disp[i, 1];
                     tP.Z = -Math.Sin(scale_disp[i, 3]) * tP.Y + Math.Cos(scale_disp[i, 3]) * tP.Z * Math.Sin(Math.PI / 2 - scale_rot[i, 3]) + scale_disp[i, 2]; //tP.Z + tP.Z * Math.Sin(rot[i, 2]);
 
                     //replace previous xyz with displaced xyz
                     tempNew[i] = tP;
+
+                    Debug.WriteLine(tP);
                 }
 
                 //Create Nurbscurve based on new nodal points
-                NurbsCurve nc = NurbsCurve.Create(false, n, tempNew);
+                //NurbsCurve nc = NurbsCurve.Create(false, n, tempNew);
+                Curve nc = Curve.CreateInterpolatedCurve(tempNew, 3);
                 defGeometry.Add(nc);
                 newXYZ.AddRange(tempNew);
                 oldXYZ.AddRange(tempOld);
