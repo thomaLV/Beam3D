@@ -58,12 +58,13 @@ namespace Beam3D
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Deformations", "Def", "Deformations", GH_ParamAccess.tree);
-            pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Shape Def", "Def", "Deformations", GH_ParamAccess.tree);
+            pManager.AddNumberParameter("Nodal Def", "Def", "Deformations", GH_ParamAccess.list);
+            //pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
+            //pManager.AddNumberParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
+            //pManager.AddNumberParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
             pManager.AddCurveParameter("NurbsCurves", "Crv", "Deformed Geometry", GH_ParamAccess.list);
-            pManager.AddPointParameter("Points", "P", "Ordered list of deformed points (original xyz)", GH_ParamAccess.list);
+            //pManager.AddPointParameter("Points", "P", "Ordered list of deformed points (original xyz)", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -216,11 +217,12 @@ namespace Beam3D
 
 
             DA.SetDataTree(0, def_shape_nested);
-            DA.SetDataList(1, reactions);
+            DA.SetDataList(1, def_tot);
+            //DA.SetDataList(1, reactions);
             //DA.SetDataList(2, internalStresses);
             //DA.SetDataList(3, internalStrains);
-            DA.SetDataList(4, defGeometry);
-            DA.SetDataList(5, points);
+            DA.SetDataList(2, defGeometry);
+            //DA.SetDataList(5, points);
 
 
         } //End of main component
@@ -287,10 +289,14 @@ namespace Beam3D
                 Matrix<double> scale_disp = Matrix<double>.Build.Dense(n + 1, 4);
                 Matrix<double> scale_rot = Matrix<double>.Build.Dense(n + 1, 4);
 
-                //var tf = TransformationMatrix(line.From, line.To, 0);
+                //var tf = TransformationMatrix(tempOld[0], tempOld[1], 0);
                 //var T = tf.DiagonalStack(tf);
                 //T = T.DiagonalStack(T);
-                //u = T * u;
+                //u = T * u;                
+                var tf = TransformationMatrix(line.From, line.To, 0);
+                var T = tf.DiagonalStack(tf);
+                T = T.DiagonalStack(T);
+                u = T * u;
 
                 //prepare deformation vector for scaled results (for drawing of deformed geometry)
                 if (scale != 1)
@@ -304,22 +310,68 @@ namespace Beam3D
 
                     disp.SetRow(i, N.Multiply(u));
                     rot.SetRow(i, B.Multiply(u));
+
+                    //transform to global coords
+                    var tempDef = Vector<double>.Build.DenseOfArray(new double[] { disp[i, 0], disp[i, 1], disp[i, 2] });
+                    tempDef = tf.Transpose() * tempDef * tf;
+                    List<double> t2 = new List<double>(tempDef.ToArray());
+
+                    //remember to re-add (local) theta x
+                    t2.Add(disp[i, 3]);
+                    tempDef = Vector<double>.Build.DenseOfEnumerable(t2);
+                    disp.SetRow(i, tempDef);
+
+                    var tempDef2 = Vector<double>.Build.DenseOfArray(new double[] { disp[i, 3], rot[i, 2], rot[i, 1] });
+                    tempDef2 = tf.Transpose() * tempDef2 * tf;
+
+                    //set global theta x
+                    disp[i, 3] = tempDef2[0];
+
+                    List<double> t3 = new List<double>(tempDef2.ToArray());
+
+                    //re-add missing value
+                    t3.Add(disp[i, 3]);
+                    tempDef2 = Vector<double>.Build.DenseOfEnumerable(t3);
+
+
+                    tempDef2[0] = rot[i, 0];
+                    tempDef2[1] = tempDef2[2];
+                    tempDef2[2] = t3[1];
+                    rot.SetRow(i, tempDef2);
                     if (scale != 1)
                     {
                         scale_disp.SetRow(i, N.Multiply(v));
                         scale_rot.SetRow(i, B.Multiply(v));
+
+                        //transform to global coords
+                        tempDef = Vector<double>.Build.DenseOfArray(new double[] { scale_disp[i, 0], scale_disp[i, 1], scale_disp[i, 2] });
+                        tempDef = tf.Transpose() * tempDef * tf;
+                        t2 = new List<double>(tempDef.ToArray());
+
+                        //remember to re-add (local) theta x
+                        t2.Add(disp[i, 3]);
+                        tempDef = Vector<double>.Build.DenseOfEnumerable(t2);
+                        scale_disp.SetRow(i, tempDef);
+
+                        tempDef2 = Vector<double>.Build.DenseOfArray(new double[] { scale_disp[i, 3], scale_rot[i, 2], scale_rot[i, 1] });
+                        tempDef2 = tf.Transpose() * tempDef2 * tf;
+
+                        //set global theta x
+                        disp[i, 3] = tempDef2[0];
+
+                        t3 = new List<double>(tempDef2.ToArray());
+
+                        //re-add missing value
+                        t3.Add(disp[i, 3]);
+                        tempDef2 = Vector<double>.Build.DenseOfEnumerable(t3);
+
+                        tempDef2[0] = rot[i, 0];
+                        tempDef2[1] = tempDef2[2];
+                        tempDef2[2] = t3[1];
+                        scale_rot.SetRow(i, tempDef2);
                     }
                 }
-
-                var tf = TransformationMatrix(line.From, line.To, 0);
-                var T = tf.DiagonalStack(tf);
-                T = T.DiagonalStack(T);
-
-                //var scale_disp2 = Matrix<double>.Build.DenseOfMatrix(scale_disp);
-                //scale_disp.RemoveRow(3);
-
-                //scale_disp = tf * scale_disp;
-                ////scale_rot = T.Transpose() * scale_rot;
+                rot.SetColumn(2, -rot.Column(2));
 
                 //Calculate new nodal points
                 for (int i = 0; i < n + 1; i++)
@@ -327,12 +379,9 @@ namespace Beam3D
                     //original xyz                        
                     var tP = tempNew[i];
 
-                    //tP.X = tP.X + scale_disp[i, 1];
-                    //tP.Y = tP.Y - scale_disp[i, 1];
-                    //tP.Z = tP.Z + scale_disp[i, 2]; //tP.Z + tP.Z * Math.Sin(rot[i, 2]);
-
-                    Debug.WriteLine(disp.ToString());
-                    Debug.WriteLine(rot.ToString());
+                    tP.X = tP.X + scale_disp[i, 0];
+                    tP.Y = tP.Y + scale_disp[i, 1];
+                    tP.Z = tP.Z + scale_disp[i, 2]; //tP.Z + tP.Z * Math.Sin(rot[i, 2]);
 
                     //  x + z*cos(90-rot_z) + y*cos(90-rot_y) + nx
                     // -y*cos(n4)*sin(90-rot_y) + z*sin(n4) + ny
@@ -340,14 +389,13 @@ namespace Beam3D
 
 
                     //calculate new xyz
-                    tP.X = tP.X + scale_disp[i, 0] + tP.Y * Math.Cos(Math.PI / 2 - scale_rot[i, 1]) + tP.Z * Math.Cos(Math.PI / 2 - scale_rot[i, 3]);
-                    tP.Y = Math.Cos(scale_disp[i, 3]) * tP.Y * Math.Sin(Math.PI / 2 + scale_rot[i, 1]) + Math.Sin(scale_disp[i, 3]) * tP.Z - scale_disp[i, 1];
-                    tP.Z = -Math.Sin(scale_disp[i, 3]) * tP.Y + Math.Cos(scale_disp[i, 3]) * tP.Z * Math.Sin(Math.PI / 2 - scale_rot[i, 3]) + scale_disp[i, 2]; //tP.Z + tP.Z * Math.Sin(rot[i, 2]);
+                    //tP.X = tP.X + scale_disp[i, 0] + tP.Y * Math.Cos(Math.PI / 2 - scale_rot[i, 1]) + tP.Z * Math.Cos(Math.PI / 2 - scale_rot[i, 2]);   //old x-eq
+                    //tP.X = tP.X + scale_disp[i, 0] + tP.Y * Math.Cos(Math.PI / 2 - scale_rot[i, 1]) + tP.Z * Math.Cos(Math.PI / 2 - scale_rot[i, 3]);
+                    //tP.Y = (Math.Cos(scale_disp[i, 3]) * tP.Y * Math.Sin(Math.PI / 2 + scale_rot[i, 1]) + Math.Sin(scale_disp[i, 3]) * tP.Z - scale_disp[i, 1]);
+                    //tP.Z = -Math.Sin(scale_disp[i, 3]) * tP.Y + Math.Cos(scale_disp[i, 3]) * tP.Z * Math.Sin(Math.PI / 2 - scale_rot[i, 3]) + scale_disp[i, 2]; //tP.Z + tP.Z * Math.Sin(rot[i, 2]);
 
                     //replace previous xyz with displaced xyz
                     tempNew[i] = tP;
-
-                    Debug.WriteLine(tP);
                 }
 
                 //Create Nurbscurve based on new nodal points
@@ -406,10 +454,10 @@ namespace Beam3D
             double[] def_e = new double[oldXYZ.Count * 6];
             for (int i = 0; i < oldXYZ.Count; i++)
             {
-                //calculate distance from original interpolated points to deformed points
-                def_e[i * 6 + 0] = newXYZ[i].X - oldXYZ[i].X;
-                def_e[i * 6 + 1] = newXYZ[i].Y + oldXYZ[i].Y;
-                def_e[i * 6 + 2] = newXYZ[i].Z - oldXYZ[i].Z;
+                //calculate distance from original interpolated points to deformed points          
+                def_e[i * 6 + 0] = disp[i, 0];
+                def_e[i * 6 + 1] = disp[i, 1];
+                def_e[i * 6 + 2] = disp[i, 2];
                 //add already correct rotations
                 def_e[i * 6 + 3] = disp[i, 3];
                 def_e[i * 6 + 4] = rot[i, 2]; //theta_y = d_uz/d_x
@@ -470,10 +518,10 @@ namespace Beam3D
             double dN6 = 3 * Math.Pow(x, 2) / Math.Pow(L, 2) - 2 * x / L;
 
             dN = Matrix<double>.Build.DenseOfArray(new double[,] {
-                { dN1, 0, 0, 0, 0, 0, dN2, 0, 0, 0, 0, 0},
-                { 0, dN3, 0, 0, 0, dN4, 0, dN5, 0, 0, 0, dN6 },
-                { 0, 0, dN3, 0, -dN4, 0, 0, 0, dN5, 0, -dN6, 0},
-                { 0, 0, 0, dN1, 0, 0, 0, 0, 0, dN2, 0, 0} });
+                { dN1, 0,    0,  0,  0,     0,  dN2,    0,  0,  0,    0,    0},
+                { 0, dN3,    0,  0,  0,  dN4,   0,  dN5,    0,  0,    0, dN6 },
+                { 0,    0, dN3,  0, -dN4,   0,  0,      0,dN5,  0, -dN6,    0},
+                { 0,    0,   0, dN1, 0,     0,  0,      0,  0, dN2,  0,     0} });
 
             //theta_y = du_z/dx
             //theta_z = du_y/dx
