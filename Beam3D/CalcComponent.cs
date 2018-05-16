@@ -794,15 +794,17 @@ namespace Beam3D
         {
             double L = p1.DistanceTo(p2);
 
+            //calculate angles
             double cx = (p2.X - p1.X) / L;
             double cy = (p2.Y - p1.Y) / L;
             double cz = (p2.Z - p1.Z) / L;
+
             double c1 = Math.Cos(alpha);
             double s1 = Math.Sin(alpha);
-            double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
 
             Matrix<double> t;
 
+            //line is only along y-axis? cannot divide by 0, instead use this matrix
             if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
             {
                 t = Matrix<double>.Build.DenseOfArray(new double[,]
@@ -812,8 +814,10 @@ namespace Beam3D
                     {  cy*s1,  0, c1},
             });
             }
+            //normally this matrix should be used
             else
             {
+                double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
                 t = Matrix<double>.Build.DenseOfArray(new double[,]
             {
                     {                     cx,       cy,                   cz},
