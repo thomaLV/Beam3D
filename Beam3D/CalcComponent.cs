@@ -832,8 +832,8 @@ namespace Beam3D
         {
             double L = Math.Round(currentLine.Length, 6);
 
-            p1 = new Point3d(Math.Round(currentLine.From.X, 2), Math.Round(currentLine.From.Y, 2), Math.Round(currentLine.From.Z, 2));
-            p2 = new Point3d(Math.Round(currentLine.To.X, 2), Math.Round(currentLine.To.Y, 2), Math.Round(currentLine.To.Z, 2));
+            p1 = new Point3d(Math.Round(currentLine.From.X, 4), Math.Round(currentLine.From.Y, 4), Math.Round(currentLine.From.Z, 4));
+            p2 = new Point3d(Math.Round(currentLine.To.X, 4), Math.Round(currentLine.To.Y, 4), Math.Round(currentLine.To.Z, 4));
 
             Matrix<double> tf = TransformationMatrix(p1, p2, 0);
             var T = tf.DiagonalStack(tf);
@@ -925,11 +925,11 @@ namespace Beam3D
                 string[] coordstr1 = (coordstr.Split(','));
                 string[] loadstr1 = (loadstr.Split(','));
 
-                inputLoads.Add(Math.Round(double.Parse(loadstr1[0]), 2));
-                inputLoads.Add(Math.Round(double.Parse(loadstr1[1]), 2));
-                inputLoads.Add(Math.Round(double.Parse(loadstr1[2]), 2));
+                inputLoads.Add(Math.Round(double.Parse(loadstr1[0]), 4));
+                inputLoads.Add(Math.Round(double.Parse(loadstr1[1]), 4));
+                inputLoads.Add(Math.Round(double.Parse(loadstr1[2]), 4));
 
-                coordlist.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 2), Math.Round(double.Parse(coordstr1[1]), 2), Math.Round(double.Parse(coordstr1[2]), 2)));
+                coordlist.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 4), Math.Round(double.Parse(coordstr1[1]), 4), Math.Round(double.Parse(coordstr1[2]), 4)));
             }
 
             foreach (Point3d point in coordlist)
@@ -950,12 +950,12 @@ namespace Beam3D
                     string[] coordstr1 = (coordstr.Split(','));
                     string[] loadstr1 = (loadstr.Split(','));
 
-                    inputLoads.Add(Math.Round(double.Parse(loadstr1[0]), 2));
-                    inputLoads.Add(Math.Round(double.Parse(loadstr1[1]), 2));
-                    inputLoads.Add(Math.Round(double.Parse(loadstr1[2]), 2));
+                    inputLoads.Add(Math.Round(double.Parse(loadstr1[0]), 4));
+                    inputLoads.Add(Math.Round(double.Parse(loadstr1[1]), 4));
+                    inputLoads.Add(Math.Round(double.Parse(loadstr1[2]), 4));
 
 
-                    coordlist.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 2), Math.Round(double.Parse(coordstr1[1]), 2), Math.Round(double.Parse(coordstr1[2]), 2)));
+                    coordlist.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 4), Math.Round(double.Parse(coordstr1[1]), 4), Math.Round(double.Parse(coordstr1[2]), 4)));
                 }
 
             foreach (Point3d point in coordlist)
@@ -985,7 +985,7 @@ namespace Beam3D
                 string[] coordstr1 = (coordstr.Split(','));
                 string[] bdcstr1 = (bdcstr.Split(','));
 
-                bdc_points.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 2), Math.Round(double.Parse(coordstr1[1]), 2), Math.Round(double.Parse(coordstr1[2]), 2)));
+                bdc_points.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 4), Math.Round(double.Parse(coordstr1[1]), 4), Math.Round(double.Parse(coordstr1[2]), 4)));
 
                 bdcs.Add(int.Parse(bdcstr1[0]));
                 bdcs.Add(int.Parse(bdcstr1[1]));
@@ -1027,8 +1027,8 @@ namespace Beam3D
             List<Point3d> points = new List<Point3d>();
             foreach (Line line in geometry) //adds point unless it already exists in pointlist
             {
-                Point3d tempFrom = new Point3d(Math.Round(line.From.X, 2), Math.Round(line.From.Y, 2), Math.Round(line.From.Z, 2));
-                Point3d tempTo = new Point3d(Math.Round(line.To.X, 2), Math.Round(line.To.Y, 2), Math.Round(line.To.Z, 2));
+                Point3d tempFrom = new Point3d(Math.Round(line.From.X, 4), Math.Round(line.From.Y, 4), Math.Round(line.From.Z, 4));
+                Point3d tempTo = new Point3d(Math.Round(line.To.X, 4), Math.Round(line.To.Y, 4), Math.Round(line.To.Z, 4));
 
                 if (!points.Contains(tempFrom))
                 {

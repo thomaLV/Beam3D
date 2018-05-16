@@ -20,8 +20,7 @@ namespace Beam3D
             pManager.AddNumberParameter("Load", "L", "Load originally given i Newtons (N), give one load for all points or list of loads for each point", GH_ParamAccess.list);
             pManager.AddNumberParameter("angle (xz)", "axz", "give angle for load in xz plane", GH_ParamAccess.list, 90);
             pManager.AddNumberParameter("angle (xy)", "axy", "give angle for load in xy plane", GH_ParamAccess.list, 0);
-            //pManager[2].Optional = true; //Code can run without a given angle (90 degrees is initial value)
-        }
+       }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
@@ -56,9 +55,9 @@ namespace Beam3D
             if (loadList.Count == 1 && anglexz.Count == 1)              //loads and angles are identical for all points 
             {
                 load = -1 * loadList[0];                                //negativ load for z-dir
-                xvec = Math.Round(load * Math.Cos(anglexz[0] * Math.PI / 180) * Math.Cos(anglexy[0] * Math.PI / 180), 2);
-                yvec = Math.Round(load * Math.Cos(anglexz[0] * Math.PI / 180) * Math.Sin(anglexy[0] * Math.PI / 180), 2);
-                zvec = Math.Round(load * Math.Sin(anglexz[0] * Math.PI / 180), 2);
+                xvec = Math.Round(load * Math.Cos(anglexz[0] * Math.PI / 180) * Math.Cos(anglexy[0] * Math.PI / 180), 4);
+                yvec = Math.Round(load * Math.Cos(anglexz[0] * Math.PI / 180) * Math.Sin(anglexy[0] * Math.PI / 180), 4);
+                zvec = Math.Round(load * Math.Sin(anglexz[0] * Math.PI / 180), 4);
 
                 vectorString = xvec + "," + yvec + "," + zvec;
                 for (int i = 0; i < pointList.Count; i++)               //adds identical load to all points in pointList
@@ -78,9 +77,9 @@ namespace Beam3D
                     {
                         load = -1 * loadList[i];        //negative load for z-dir
 
-                        xvec = Math.Round(load * Math.Cos(anglexz[i]) * Math.Cos(anglexy[i]), 2);
-                        yvec = Math.Round(load * Math.Cos(anglexz[i]) * Math.Sin(anglexy[i]), 2);
-                        zvec = Math.Round(load * Math.Sin(anglexz[i]), 2);
+                        xvec = Math.Round(load * Math.Cos(anglexz[i]) * Math.Cos(anglexy[i]), 4);
+                        yvec = Math.Round(load * Math.Cos(anglexz[i]) * Math.Sin(anglexy[i]), 4);
+                        zvec = Math.Round(load * Math.Sin(anglexz[i]), 4);
 
                         vectorString = xvec + "," + yvec + "," + zvec;
                     }
