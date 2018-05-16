@@ -569,7 +569,7 @@ namespace Beam3D
                         }
                         else
                         {
-                            //if not, remember to skip 1 column when adding next time
+                            //if not, remember to skip 1 column when adding next time (default matrix value is 0)
                             jj++;
                         }
                     }
@@ -577,8 +577,8 @@ namespace Beam3D
                     load_red[i - ii] = load[i];
                 }
                 else
-                {                            
-                    //if not, remember to skip 1 row when adding next time
+                {
+                    //if not, remember to skip 1 row when adding next time (default matrix value is 0)
                     ii++;
                 }
             }
