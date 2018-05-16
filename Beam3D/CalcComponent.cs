@@ -132,7 +132,7 @@ namespace Beam3D
                 //Create reduced K-matrix and reduced load list (removed free dofs)
                 Matrix<double> K_red;
                 Vector<double> load_red;
-                CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
+                ReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
                 #endregion
 
                 #region Solver Performance Test
@@ -548,11 +548,11 @@ namespace Beam3D
             return def;
         }
 
-        private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
+        private void ReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> KGr, out Vector<double> load_red)
         {
             int oldRC = load.Count;
             int newRC = Convert.ToInt16(bdc_value.Sum());
-            K_red = Matrix<double>.Build.Dense(newRC, newRC);
+            KGr = Matrix<double>.Build.Dense(newRC, newRC);
             load_red = Vector<double>.Build.Dense(newRC, 0);
             for (int i = 0, ii = 0; i < oldRC; i++)
             {
@@ -565,7 +565,7 @@ namespace Beam3D
                         if (bdc_value[j] == 1)
                         {
                             //if yes, then add to new K
-                            K_red[i - ii, j - jj] = K[i, j];
+                            KGr[i - ii, j - jj] = K[i, j];
                         }
                         else
                         {
