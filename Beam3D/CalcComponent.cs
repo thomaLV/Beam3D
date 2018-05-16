@@ -254,7 +254,8 @@ namespace Beam3D
         }
 
         private void CalculateInternalStresses(Matrix<double> strain, double E, double G, out Matrix<double> stress)
-        {
+        {                
+            //strain = [ex, ey, ez, gxy, gyz, gzx]
             stress = Matrix<double>.Build.Dense(strain.RowCount, strain.ColumnCount);
             for (int i = 0; i < strain.RowCount; i++)
             {
@@ -267,12 +268,12 @@ namespace Beam3D
                     stress[i, j * 6 + 4] = G * strain[i, j * 6 + 4];
                     stress[i, j * 6 + 5] = G * strain[i, j * 6 + 5];
                 }
-                //strain = [ex, ey, ez, gxy, gyz, gzx]
             }
         }
 
         private Grasshopper.DataTree<double> ConvertToNestedList(Matrix<double> M)
         {
+            //Convert matrix rows to paths
             Grasshopper.DataTree<double> def_shape_nested = new Grasshopper.DataTree<double>();
             for (int i = 0; i < M.RowCount; i++)
             {
@@ -484,10 +485,6 @@ namespace Beam3D
                     {   (cx*cy*s1-cz*c1)/cxz,  -cxz*s1, (cy*cz*s1+cx*c1)/cxz},
             });
             }
-
-            ////12 dofs -> 12x12 T matrix
-            //var T = t.DiagonalStack(t);
-            //T = T.DiagonalStack(T);
             return t;
         }
 
@@ -569,51 +566,12 @@ namespace Beam3D
             //theta_z = du_y/dx
         }
 
-        //private void CalculateInternalStrainsAndStresses(Matrix<double> def, List<Point3d> newXYZ, List<Point3d> oldXYZ, double E, List<Line> geometry, int n, out List<double> internalStresses, out List<double> internalStrains)
-        //{
-        //    //preallocating lists
-        //    internalStresses = new List<double>(geometry.Count);
-        //    internalStrains = new List<double>(geometry.Count);
-                
-        //    for (int i = 0; i < geometry.Count; i++)
-        //    {
-        //        int index1 = oldXYZ.IndexOf(new Point3d(Math.Round(geometry[i].From.X, 4), Math.Round(geometry[i].From.Y, 4), Math.Round(geometry[i].From.Z, 4)));
-
-        //        for (int j = 0; j < def.ColumnCount - 1; j++)
-        //        {
-        //            ////fetching deformation of point
-        //            //double x1 = def[index1, *3 + 0];
-        //            //double y1 = def[index1 * 3 + 1];
-        //            //double z1 = def[index1 * 3 + 2];
-        //            //double x2 = def[index2 * 3 + 0];
-        //            //double y2 = def[index2 * 3 + 1];
-        //            //double z2 = def[index2 * 3 + 2];
-
-
-        //            ////calculating dL = length of deformed line - original length of line
-        //            //double dL = Math.Sqrt(Math.Pow((nx2 - nx1), 2) + Math.Pow((ny2 - ny1), 2) + Math.Pow((nz2 - nz1), 2)) - line.Length;
-                    
-        //            //original length of subelement
-        //            double oLen = oldXYZ[j].DistanceTo(oldXYZ[j + 1]);
-
-        //            //deformed length of subelement
-        //            double nLen = newXYZ[j].DistanceTo(newXYZ[j + 1]);
-
-        //            //calculating dL = length of deformed line - original length of line
-        //            double dL = nLen - oLen; 
-
-        //            //calculating strain and stress
-        //            internalStrains.Add(dL / oLen);
-        //            internalStresses.Add(internalStrains[internalStrains.Count - 1] * E);
-        //        }
-        //    }
-        //}
-
         private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, Vector<double> bdc_value)
         {
             Vector<double> def = Vector<double>.Build.Dense(bdc_value.Count);
             for (int i = 0, j = 0; i < bdc_value.Count; i++)
             {
+                //if deformation has been calculated, it is added to the vector. Otherwise, the deformation is zero.
                 if (bdc_value[i] == 1)
                 {
                     def[i] = deformations_red[j];
@@ -648,6 +606,7 @@ namespace Beam3D
                             jj++;
                         }
                     }
+                    //add load to reduced list
                     load_red[i - ii] = load[i];
                 }
                 else
@@ -656,18 +615,6 @@ namespace Beam3D
                     ii++;
                 }
             }
-            //for (int i = 0, j=0; i < size; i++)
-            //{
-            //    //remove clamped dofs
-            //    if (bdc_value[i] == 0)
-            //    {
-            //        K_red = K_red.RemoveRow(i - j);
-            //        K_red = K_red.RemoveColumn(i - j);
-            //        load_redu.RemoveAt(i - j);
-            //        j++;
-            //    }
-            //}
-            //load_red = Vector<double>.Build.DenseOfEnumerable(load_redu);
         }
 
         private static bool IsDiagonalPositive(Matrix<double> A)
