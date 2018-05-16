@@ -62,6 +62,7 @@ namespace Beam3D
             pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
             pManager.AddGenericParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.tree);
             pManager.AddGenericParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Von Mises stress", "Strn", "The Mises Strain in each element", GH_ParamAccess.tree);
             pManager.AddCurveParameter("NurbsCurves", "Crv", "Deformed Geometry", GH_ParamAccess.list);
             //pManager.AddPointParameter("Points", "P", "Ordered list of deformed points (original xyz)", GH_ParamAccess.list);
         }
@@ -114,6 +115,7 @@ namespace Beam3D
             Matrix<double> def_shape;
             Matrix<double> glob_strain;
             Matrix<double> glob_stress;
+            Matrix<double> mises_stress;
 
             Vector<double> reactions;
             List<double> internalStresses;
@@ -201,43 +203,71 @@ namespace Beam3D
 
                 //Calculate the internal strains and stresses in each member
                 CalculateInternalStresses(glob_strain, E, G, out glob_stress);
+
+                //Calculate the internal strains and stresses in each member
+                CalculateMisesStresses(glob_stress, out mises_stress);
                 #endregion
             }
             else
             {
+                #region Set outputs to zero
                 reactions = Vector<double>.Build.Dense(points.Count * 6);
-                def_shape = Matrix<double>.Build.Dense(geometry.Count, 2 * 6 * n);
+                def_shape = Matrix<double>.Build.Dense(geometry.Count, 6 * (n + 1));
                 glob_strain = def_shape;
                 glob_stress = def_shape;
+                mises_stress = def_shape;
 
                 internalStresses = new List<double>(geometry.Count);
                 internalStresses.AddRange(new double[geometry.Count]);
                 internalStrains = internalStresses;
+                #endregion
             }
 
             Grasshopper.DataTree<double> def_shape_nested = ConvertToNestedList(def_shape);
             Grasshopper.DataTree<double> strain_nested = ConvertToNestedList(glob_strain);
             Grasshopper.DataTree<double> stresses_nested = ConvertToNestedList(glob_stress);
+            Grasshopper.DataTree<double> mises_nested = ConvertToNestedList(mises_stress);
 
             DA.SetDataTree(0, def_shape_nested);
             DA.SetDataList(1, reactions);
             DA.SetDataTree(2, stresses_nested);
             DA.SetDataTree(3, strain_nested);
-            DA.SetDataList(4, defGeometry);
+            DA.SetDataTree(4, mises_nested);
+            DA.SetDataList(5, defGeometry);
 
 
         } //End of main component
 
+        private void CalculateMisesStresses(Matrix<double> glob_stress, out Matrix<double> mises_stress)
+        {
+            double sig_v;
+            mises_stress = Matrix<double>.Build.Dense(glob_stress.RowCount, glob_stress.ColumnCount / 6);
+            for (int i = 0; i < glob_stress.RowCount; i++)
+            {
+                for (int j = 0; j < glob_stress.ColumnCount/6; j++)
+                {
+                    sig_v = Math.Sqrt(0.5 * (Math.Pow(glob_stress[i, j * 6] - glob_stress[i, j * 6 + 1], 2) + Math.Pow(glob_stress[i, j * 6 + 1] - glob_stress[i, j * 6 + 2], 2) + Math.Pow(glob_stress[i, j * 6 + 2] - glob_stress[i, j * 6], 2)))
+                       + Math.Sqrt(3 * (glob_stress[i, j * 6 + 3] * glob_stress[i, j * 6 + 3] + glob_stress[i, j * 6 + 4] * glob_stress[i, j * 6 + 4] + glob_stress[i, j * 6 + 5] * glob_stress[i, j * 6 + 5]));
+                    mises_stress[i, j] = sig_v;
+                }
+            }
+        }
+
         private void CalculateInternalStresses(Matrix<double> strain, double E, double G, out Matrix<double> stress)
         {
-            stress = Matrix<double>.Build.DenseOfMatrix(strain);
-            for (int i = 0; i < strain.ColumnCount; i += 4)
+            stress = Matrix<double>.Build.Dense(strain.RowCount, strain.ColumnCount);
+            for (int i = 0; i < strain.RowCount; i++)
             {
-                //ex, ey, ez, gxy
-                stress.SetColumn(i, E * strain.Column(i));
-                stress.SetColumn(i + 1, E * strain.Column(i));
-                stress.SetColumn(i + 2, E * strain.Column(i));
-                stress.SetColumn(i + 3, G * strain.Column(i));
+                for (int j = 0; j < strain.ColumnCount/6; j++)
+                {
+                    stress[i, j * 6 + 0] = E * strain[i, j * 6 + 0];
+                    stress[i, j * 6 + 1] = E * strain[i, j * 6 + 1];
+                    stress[i, j * 6 + 2] = E * strain[i, j * 6 + 2];
+                    stress[i, j * 6 + 3] = G * strain[i, j * 6 + 3];
+                    stress[i, j * 6 + 4] = G * strain[i, j * 6 + 4];
+                    stress[i, j * 6 + 5] = G * strain[i, j * 6 + 5];
+                }
+                //strain = [ex, ey, ez, gxy, gyz, gzx]
             }
         }
 
@@ -258,10 +288,9 @@ namespace Beam3D
 
         private void InterpolateDeformations(Vector<double> def, List<Point3d> points, List<Line> geometry, int n, int scale, out Matrix<double> def_shape, out List<Curve> defGeometry, out List<Point3d> newXYZ, out List<Point3d> oldXYZ, out Matrix<double> glob_strain)
         {
-            defGeometry = new List<Curve>();    //output deformed geometry
-
+            defGeometry = new List<Curve>();
             def_shape = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 6);
-            glob_strain = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 4);
+            glob_strain = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 6);
             Matrix<double> N, B;
             Vector<double> u = Vector<double>.Build.Dense(12);
             Vector<double> v = Vector<double>.Build.Dense(12);
@@ -281,7 +310,7 @@ namespace Beam3D
                     u[j + 6] = def[i2 * 6 + j];
                 }
                 
-                //interpolate points between startNode and endNode of original (main) element
+                //interpolate points between startNode and endNode of undeformed (main) element
                 List<Point3d> tempNew = InterpolatePoints(geometry[i], n);
                 List<Point3d> tempOld = new List<Point3d>(tempNew);
 
@@ -320,6 +349,7 @@ namespace Beam3D
                 {
                     Shapefunctions(L, x[j], out N, out B);
 
+                    //multiply by u-vector (nodal deformation values)
                     disp.SetRow(j, N.Multiply(u));
                     rot.SetRow(j, B.Multiply(u));
 
@@ -366,6 +396,7 @@ namespace Beam3D
                         //original xyz                        
                         var tP = tempNew[j];
 
+                        //add deformations
                         tP.X = tP.X + scaled_disp[j, 0];
                         tP.Y = tP.Y + scaled_disp[j, 1];
                         tP.Z = tP.Z + scaled_disp[j, 2];
@@ -378,6 +409,7 @@ namespace Beam3D
                         //original xyz                        
                         var tP = tempNew[j];
 
+                        //add deformations
                         tP.X = tP.X + disp[j, 0];
                         tP.Y = tP.Y + disp[j, 1];
                         tP.Z = tP.Z + disp[j, 2];
@@ -400,14 +432,20 @@ namespace Beam3D
                 newXYZ.AddRange(tempNew);
                 oldXYZ.AddRange(tempOld);
 
-                //add deformation to def_shape
-                List<double> tempStrain = new List<double>((n + 1) * 4);
+                //add deformation to def_shape (convert from i = nodal number to i = element number)
+                List<double> tempStrain = new List<double>((n + 1) * 6);
                 for (int j = 0; j < n + 1; j++)
                 {
-                    for (int jj = 0; jj < 4; jj++)
+                    for (int jj = 0; jj < 3; jj++)
                     {
                         tempStrain.Add(rot[j, jj]);
                     }
+                    double temp_xy = rot[j, 0] + rot[j, 1];
+                    double temp_yz_zy = rot[j, 1] + rot[j, 2];
+                    double temp_zx_xz = rot[j, 2] + rot[j, 0];
+                    tempStrain.Add(temp_xy);
+                    tempStrain.Add(temp_yz_zy);
+                    tempStrain.Add(temp_zx_xz);
                 }
                 var tS = Vector<double>.Build.DenseOfEnumerable(tempStrain);
                 glob_strain.SetRow(i, tS);
@@ -531,45 +569,45 @@ namespace Beam3D
             //theta_z = du_y/dx
         }
 
-        private void CalculateInternalStrainsAndStresses(Matrix<double> def, List<Point3d> newXYZ, List<Point3d> oldXYZ, double E, List<Line> geometry, int n, out List<double> internalStresses, out List<double> internalStrains)
-        {
-            //preallocating lists
-            internalStresses = new List<double>(geometry.Count);
-            internalStrains = new List<double>(geometry.Count);
+        //private void CalculateInternalStrainsAndStresses(Matrix<double> def, List<Point3d> newXYZ, List<Point3d> oldXYZ, double E, List<Line> geometry, int n, out List<double> internalStresses, out List<double> internalStrains)
+        //{
+        //    //preallocating lists
+        //    internalStresses = new List<double>(geometry.Count);
+        //    internalStrains = new List<double>(geometry.Count);
                 
-            for (int i = 0; i < geometry.Count; i++)
-            {
-                int index1 = oldXYZ.IndexOf(new Point3d(Math.Round(geometry[i].From.X, 4), Math.Round(geometry[i].From.Y, 4), Math.Round(geometry[i].From.Z, 4)));
+        //    for (int i = 0; i < geometry.Count; i++)
+        //    {
+        //        int index1 = oldXYZ.IndexOf(new Point3d(Math.Round(geometry[i].From.X, 4), Math.Round(geometry[i].From.Y, 4), Math.Round(geometry[i].From.Z, 4)));
 
-                for (int j = 0; j < def.ColumnCount - 1; j++)
-                {
-                    ////fetching deformation of point
-                    //double x1 = def[index1, *3 + 0];
-                    //double y1 = def[index1 * 3 + 1];
-                    //double z1 = def[index1 * 3 + 2];
-                    //double x2 = def[index2 * 3 + 0];
-                    //double y2 = def[index2 * 3 + 1];
-                    //double z2 = def[index2 * 3 + 2];
+        //        for (int j = 0; j < def.ColumnCount - 1; j++)
+        //        {
+        //            ////fetching deformation of point
+        //            //double x1 = def[index1, *3 + 0];
+        //            //double y1 = def[index1 * 3 + 1];
+        //            //double z1 = def[index1 * 3 + 2];
+        //            //double x2 = def[index2 * 3 + 0];
+        //            //double y2 = def[index2 * 3 + 1];
+        //            //double z2 = def[index2 * 3 + 2];
 
 
-                    ////calculating dL = length of deformed line - original length of line
-                    //double dL = Math.Sqrt(Math.Pow((nx2 - nx1), 2) + Math.Pow((ny2 - ny1), 2) + Math.Pow((nz2 - nz1), 2)) - line.Length;
+        //            ////calculating dL = length of deformed line - original length of line
+        //            //double dL = Math.Sqrt(Math.Pow((nx2 - nx1), 2) + Math.Pow((ny2 - ny1), 2) + Math.Pow((nz2 - nz1), 2)) - line.Length;
                     
-                    //original length of subelement
-                    double oLen = oldXYZ[j].DistanceTo(oldXYZ[j + 1]);
+        //            //original length of subelement
+        //            double oLen = oldXYZ[j].DistanceTo(oldXYZ[j + 1]);
 
-                    //deformed length of subelement
-                    double nLen = newXYZ[j].DistanceTo(newXYZ[j + 1]);
+        //            //deformed length of subelement
+        //            double nLen = newXYZ[j].DistanceTo(newXYZ[j + 1]);
 
-                    //calculating dL = length of deformed line - original length of line
-                    double dL = nLen - oLen; 
+        //            //calculating dL = length of deformed line - original length of line
+        //            double dL = nLen - oLen; 
 
-                    //calculating strain and stress
-                    internalStrains.Add(dL / oLen);
-                    internalStresses.Add(internalStrains[internalStrains.Count - 1] * E);
-                }
-            }
-        }
+        //            //calculating strain and stress
+        //            internalStrains.Add(dL / oLen);
+        //            internalStresses.Add(internalStrains[internalStrains.Count - 1] * E);
+        //        }
+        //    }
+        //}
 
         private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, Vector<double> bdc_value)
         {
