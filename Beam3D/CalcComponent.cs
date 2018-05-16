@@ -60,7 +60,6 @@ namespace Beam3D
         {
             pManager.AddGenericParameter("Shape Def", "Def", "Deformations", GH_ParamAccess.tree);
             pManager.AddNumberParameter("Nodal Def", "Def", "Deformations", GH_ParamAccess.list);
-            pManager.AddGenericParameter("Shape Def Local", "Def", "Deformations", GH_ParamAccess.tree);
             //pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
             //pManager.AddNumberParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
             //pManager.AddNumberParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
@@ -199,7 +198,7 @@ namespace Beam3D
 
                 //Interpolate deformations using shape functions
                 List<Point3d> newXYZ, oldXYZ;
-                InterpolateDeformations(def_tot, points, geometry, n, scale, out def_shape, out defGeometry, out newXYZ, out oldXYZ, out def_shape_local);
+                InterpolateDeformations(def_tot, points, geometry, n, scale, out def_shape, out defGeometry, out newXYZ, out oldXYZ);
 
                 //Calculate the internal strains and stresses in each member
                 //CalculateInternalStrainsAndStresses(def_shape, newXYZ, oldXYZ, E, geometry, n, out internalStresses, out internalStrains);
@@ -218,16 +217,14 @@ namespace Beam3D
             }
 
             Grasshopper.DataTree<double> def_shape_nested = ConvertToNestedList(def_shape);
-            Grasshopper.DataTree<double> def_shape_local_nested = ConvertToNestedList(def_shape_local);
 
 
             DA.SetDataTree(0, def_shape_nested);
             DA.SetDataList(1, def_tot);
-            DA.SetDataTree(2, def_shape_local_nested);
             //DA.SetDataList(1, reactions);
             //DA.SetDataList(2, internalStresses);
             //DA.SetDataList(3, internalStrains);
-            DA.SetDataList(3, defGeometry);
+            DA.SetDataList(2, defGeometry);
             //DA.SetDataList(5, points);
 
 
@@ -248,27 +245,22 @@ namespace Beam3D
             return def_shape_nested;
         }
 
-        private void InterpolateDeformations(Vector<double> def, List<Point3d> points, List<Line> geometry, int n, int scale, out Matrix<double> def_shape, out List<Curve> defGeometry, out List<Point3d> newXYZ, out List<Point3d> oldXYZ, out Matrix<double> def_shape_local)
+        private void InterpolateDeformations(Vector<double> def, List<Point3d> points, List<Line> geometry, int n, int scale, out Matrix<double> def_shape, out List<Curve> defGeometry, out List<Point3d> newXYZ, out List<Point3d> oldXYZ)
         {
             defGeometry = new List<Curve>();    //output deformed geometry
 
-            //Matrix<double> deflections = Matrix<double>.Build.Dense(geometry.Count * (n + 1), 4);
-            //Matrix<double> rotations = Matrix<double>.Build.Dense(geometry.Count * (n + 1), 4);
             def_shape = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 6);
-            def_shape_local = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 6);
             Matrix<double> N, B;
             Vector<double> u = Vector<double>.Build.Dense(12);
             Vector<double> v = Vector<double>.Build.Dense(12);
             newXYZ = new List<Point3d>();
             oldXYZ = new List<Point3d>();
 
-
-            int counter = 0;
-            foreach (Line line in geometry)
+            for (int i = 0; i < geometry.Count; i++)
             {
                 //fetches index of original start and endpoint
-                int i1 = points.IndexOf(line.From);
-                int i2 = points.IndexOf(line.To);
+                int i1 = points.IndexOf(geometry[i].From);
+                int i2 = points.IndexOf(geometry[i].To);
 
                 //create 12x1 deformation vector for element (6dofs), scaled and populated with existing deformations
                 for (int j = 0; j < 6; j++)
@@ -277,12 +269,12 @@ namespace Beam3D
                     u[j + 6] = def[i2 * 6 + j];
                 }
                 
-                //interpolate points between line.From and line.To
-                List<Point3d> tempNew = InterpolatePoints(line, n);
+                //interpolate points between startNode and endNode of original (main) element
+                List<Point3d> tempNew = InterpolatePoints(geometry[i], n);
                 List<Point3d> tempOld = new List<Point3d>(tempNew);
 
                 double L = points[i1].DistanceTo(points[i2]);   //L is distance from startnode to endnode
-                var x = Vector<double>.Build.Dense(n + 1);      //x is vector pieced x += L / n 
+                var x = Vector<double>.Build.Dense(n + 1);      //x is a vector incremented L / n, and length n
                 for (int j = 0; j < n + 1; j++)
                 {
                     x[j] = j * L / n;
@@ -292,36 +284,34 @@ namespace Beam3D
                 Matrix<double> disp = Matrix<double>.Build.Dense(n + 1, 4);
                 Matrix<double> rot = Matrix<double>.Build.Dense(n + 1, 4);
 
-                Matrix<double> disp_loc = Matrix<double>.Build.Dense(n + 1, 4);
-                Matrix<double> rot_loc = Matrix<double>.Build.Dense(n + 1, 4);
-
                 //to show scaled deformations
-                Matrix<double> scale_disp = Matrix<double>.Build.Dense(n + 1, 4);
+                Matrix<double> scaled_disp = Matrix<double>.Build.Dense(n + 1, 4);
                 Matrix<double> scale_rot = Matrix<double>.Build.Dense(n + 1, 4);
-
-                //var tf = TransformationMatrix(tempOld[0], tempOld[1], 0);
-                //var T = tf.DiagonalStack(tf);
-                //T = T.DiagonalStack(T);
-                //u = T * u;                
-                var tf = TransformationMatrix(line.From, line.To, 0);
-                var T = tf.DiagonalStack(tf);
-                T = T.DiagonalStack(T);
-                //u = T * u; //u-- > x akse lengde L
-
-                //prepare deformation vector for scaled results (for drawing of deformed geometry)
-                v = scale * u;
                 
-
-                for (int i = 0; i < n + 1; i++)          //x are points inbetween (?)
+                //prepare deformation vector for scaled results (for drawing of deformed geometry)
+                if (scale != 1)
                 {
-                    Shapefunctions(L, x[i], out N, out B);
+                    v = scale * u;
 
-                    disp.SetRow(i, N.Multiply(u)); //
-                    rot.SetRow(i, B.Multiply(u));
+                    //set correct deformations to start and end-node (to save computation time of shapefunctions)
+                    scaled_disp.SetRow(0, new double[] { v[0], v[1], v[2], v[3] });
+                    scaled_disp.SetRow(n, new double[] { v[6], v[7], v[8], v[9] });
+                }
 
-                    disp_loc.SetRow(i, disp.Row(i));
-                    rot_loc.SetRow(i, rot.Row(i));
+                //set correct deformations to start and end-node (to save computation time of shapefunctions)
+                disp.SetRow(0, new double[] { u[0], u[1], u[2], u[3] });
+                disp.SetRow(n, new double[] { u[6], u[7], u[8], u[9] });
+                rot.SetRow(0, new double[] { 0, u[5], -u[4], 0 });
+                rot.SetRow(n, new double[] { 0, u[11], -u[10], 0 });
 
+                for (int j = 1; j < n; j++)
+                {
+                    Shapefunctions(L, x[j], out N, out B);
+
+                    disp.SetRow(j, N.Multiply(u));
+                    rot.SetRow(j, B.Multiply(u));
+
+                    #region deprecated code
                     //transform to global coords
                     //var tempDef = Vector<double>.Build.DenseOfArray(new double[] { disp[i, 0], disp[i, 1], disp[i, 2] });
                     //tempDef = tf.Transpose() * tempDef * tf;
@@ -349,79 +339,67 @@ namespace Beam3D
                     //tempDef2[1] = tempDef2[2];
                     //tempDef2[2] = t3[1];
                     //rot.SetRow(i, tempDef2);
+                    #endregion
+
                     if (scale != 1)
                     {
-                        scale_disp.SetRow(i, N.Multiply(v));
-                        scale_rot.SetRow(i, B.Multiply(v));
-
-                        ////transform to global coords
-                        //tempDef = Vector<double>.Build.DenseOfArray(new double[] { scale_disp[i, 0], scale_disp[i, 1], scale_disp[i, 2] });
-                        //tempDef = tf.Transpose() * tempDef * tf;
-                        //t2 = new List<double>(tempDef.ToArray());
-
-                        ////remember to re-add (local) theta x
-                        //t2.Add(disp[i, 3]);
-                        //tempDef = Vector<double>.Build.DenseOfEnumerable(t2);
-                        //scale_disp.SetRow(i, tempDef);
-
-                        //tempDef2 = Vector<double>.Build.DenseOfArray(new double[] { scale_disp[i, 3], scale_rot[i, 2], scale_rot[i, 1] });
-                        //tempDef2 = tf.Transpose() * tempDef2 * tf;
-
-                        ////set global theta x
-                        //disp[i, 3] = tempDef2[0];
-
-                        //t3 = new List<double>(tempDef2.ToArray());
-
-                        ////re-add missing value
-                        //t3.Add(disp[i, 3]);
-                        //tempDef2 = Vector<double>.Build.DenseOfEnumerable(t3);
-
-                        //tempDef2[0] = rot[i, 0];
-                        //tempDef2[1] = tempDef2[2];
-                        //tempDef2[2] = t3[1];
-                        //scale_rot.SetRow(i, tempDef2);
+                        scaled_disp.SetRow(j, N.Multiply(v));
                     }
                 }
                 rot.SetColumn(2, -rot.Column(2));
-                rot_loc.SetColumn(2, -rot_loc.Column(2));
 
-                //Calculate new nodal points
-                for (int i = 0; i < n + 1; i++)
+                for (int j = 0; j < n + 1; j++)
                 {
-                    //original xyz                        
-                    var tP = tempNew[i];
+                    if (scale != 1)
+                    {
+                        //original xyz                        
+                        var tP = tempNew[j];
 
-                    tP.X = tP.X + scale_disp[i, 0];
-                    tP.Y = tP.Y + scale_disp[i, 1];
-                    tP.Z = tP.Z + scale_disp[i, 2]; //tP.Z + tP.Z * Math.Sin(rot[i, 2]);
+                        tP.X = tP.X + scaled_disp[j, 0];
+                        tP.Y = tP.Y + scaled_disp[j, 1];
+                        tP.Z = tP.Z + scaled_disp[j, 2];
 
-                    //  x + z*cos(90-rot_z) + y*cos(90-rot_y) + nx
-                    // -y*cos(n4)*sin(90-rot_y) + z*sin(n4) + ny
-                    // -y*sin(n4) + z*cos(n4)*sin(90-n4) + nz
+                        #region deprecated code
+                        //calculate new xyz
+                        //tP.X = tP.X + scale_disp[i, 0] + tP.Y * Math.Cos(Math.PI / 2 - scale_rot[i, 1]) + tP.Z * Math.Cos(Math.PI / 2 - scale_rot[i, 2]);   //old x-eq
+                        //tP.X = tP.X + scale_disp[i, 0] + tP.Y * Math.Cos(Math.PI / 2 - scale_rot[i, 1]) + tP.Z * Math.Cos(Math.PI / 2 - scale_rot[i, 3]);
+                        //tP.Y = (Math.Cos(scale_disp[i, 3]) * tP.Y * Math.Sin(Math.PI / 2 + scale_rot[i, 1]) + Math.Sin(scale_disp[i, 3]) * tP.Z - scale_disp[i, 1]);
+                        //tP.Z = -Math.Sin(scale_disp[i, 3]) * tP.Y + Math.Cos(scale_disp[i, 3]) * tP.Z * Math.Sin(Math.PI / 2 - scale_rot[i, 3]) + scale_disp[i, 2]; //tP.Z + tP.Z * Math.Sin(rot[i, 2]);
+                        #endregion
 
+                        //replace previous xyz with displaced xyz
+                        tempNew[j] = tP;
+                    }
+                    else
+                    {
+                        //original xyz                        
+                        var tP = tempNew[j];
 
-                    //calculate new xyz
-                    //tP.X = tP.X + scale_disp[i, 0] + tP.Y * Math.Cos(Math.PI / 2 - scale_rot[i, 1]) + tP.Z * Math.Cos(Math.PI / 2 - scale_rot[i, 2]);   //old x-eq
-                    //tP.X = tP.X + scale_disp[i, 0] + tP.Y * Math.Cos(Math.PI / 2 - scale_rot[i, 1]) + tP.Z * Math.Cos(Math.PI / 2 - scale_rot[i, 3]);
-                    //tP.Y = (Math.Cos(scale_disp[i, 3]) * tP.Y * Math.Sin(Math.PI / 2 + scale_rot[i, 1]) + Math.Sin(scale_disp[i, 3]) * tP.Z - scale_disp[i, 1]);
-                    //tP.Z = -Math.Sin(scale_disp[i, 3]) * tP.Y + Math.Cos(scale_disp[i, 3]) * tP.Z * Math.Sin(Math.PI / 2 - scale_rot[i, 3]) + scale_disp[i, 2]; //tP.Z + tP.Z * Math.Sin(rot[i, 2]);
+                        tP.X = tP.X + disp[j, 0];
+                        tP.Y = tP.Y + disp[j, 1];
+                        tP.Z = tP.Z + disp[j, 2];
 
-                    //replace previous xyz with displaced xyz
-                    tempNew[i] = tP;
+                        #region deprecated code
+                        //calculate new xyz
+                        //tP.X = tP.X + scale_disp[i, 0] + tP.Y * Math.Cos(Math.PI / 2 - scale_rot[i, 1]) + tP.Z * Math.Cos(Math.PI / 2 - scale_rot[i, 2]);   //old x-eq
+                        //tP.X = tP.X + scale_disp[i, 0] + tP.Y * Math.Cos(Math.PI / 2 - scale_rot[i, 1]) + tP.Z * Math.Cos(Math.PI / 2 - scale_rot[i, 3]);
+                        //tP.Y = (Math.Cos(scale_disp[i, 3]) * tP.Y * Math.Sin(Math.PI / 2 + scale_rot[i, 1]) + Math.Sin(scale_disp[i, 3]) * tP.Z - scale_disp[i, 1]);
+                        //tP.Z = -Math.Sin(scale_disp[i, 3]) * tP.Y + Math.Cos(scale_disp[i, 3]) * tP.Z * Math.Sin(Math.PI / 2 - scale_rot[i, 3]) + scale_disp[i, 2]; //tP.Z + tP.Z * Math.Sin(rot[i, 2]);
+                        #endregion
+
+                        //replace previous xyz with displaced xyz
+                        tempNew[j] = tP;
+                    }
                 }
 
-                //Create Nurbscurve based on new nodal points
-                //NurbsCurve nc = NurbsCurve.Create(false, n, tempNew);
+                //Create Curve based on new nodal points (degree = 3)
                 Curve nc = Curve.CreateInterpolatedCurve(tempNew, 3);
                 defGeometry.Add(nc);
                 newXYZ.AddRange(tempNew);
                 oldXYZ.AddRange(tempOld);
 
                 //add deformation to def_shape
-                def_shape.SetRow(counter, SetDef(tempOld, tempNew, disp, rot));
-                def_shape_local.SetRow(counter, SetDef(tempOld, tempNew, disp_loc, rot_loc));
-
-                counter++;
+                def_shape.SetRow(i, SetDef(tempOld, tempNew, disp, rot));
             }
         }
 
