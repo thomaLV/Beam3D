@@ -454,39 +454,6 @@ namespace Beam3D
             }
         }
 
-        private Matrix<double> TransformationMatrix(Point3d p1, Point3d p2, double alpha)
-        {
-            double L = p1.DistanceTo(p2);
-
-            double cx = (p2.X - p1.X) / L;
-            double cy = (p2.Y - p1.Y) / L;
-            double cz = (p2.Z - p1.Z) / L;
-            double c1 = Math.Cos(alpha);
-            double s1 = Math.Sin(alpha);
-            double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
-
-            Matrix<double> t;
-
-            if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
-            {
-                t = Matrix<double>.Build.DenseOfArray(new double[,]
-            {
-                    {      0, cy,  0},
-                    { -cy*c1,  0, s1},
-                    {  cy*s1,  0, c1},
-            });
-            }
-            else
-            {
-                t = Matrix<double>.Build.DenseOfArray(new double[,]
-            {
-                    {                     cx,       cy,                   cz},
-                    {(-cx*cy*c1 - cz*s1)/cxz,   cxz*c1,(-cy*cz*c1+cx*s1)/cxz},
-                    {   (cx*cy*s1-cz*c1)/cxz,  -cxz*s1, (cy*cz*s1+cx*c1)/cxz},
-            });
-            }
-            return t;
-        }
 
         private double[] SetDef(List<Point3d> oldXYZ, List<Point3d> newXYZ, Matrix<double> disp, Matrix<double> rot)
         {
@@ -823,6 +790,40 @@ namespace Beam3D
             return A;
         }
 
+        private Matrix<double> TransformationMatrix(Point3d p1, Point3d p2, double alpha)
+        {
+            double L = p1.DistanceTo(p2);
+
+            double cx = (p2.X - p1.X) / L;
+            double cy = (p2.Y - p1.Y) / L;
+            double cz = (p2.Z - p1.Z) / L;
+            double c1 = Math.Cos(alpha);
+            double s1 = Math.Sin(alpha);
+            double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
+
+            Matrix<double> t;
+
+            if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
+            {
+                t = Matrix<double>.Build.DenseOfArray(new double[,]
+            {
+                    {      0, cy,  0},
+                    { -cy*c1,  0, s1},
+                    {  cy*s1,  0, c1},
+            });
+            }
+            else
+            {
+                t = Matrix<double>.Build.DenseOfArray(new double[,]
+            {
+                    {                     cx,       cy,                   cz},
+                    {(-cx*cy*c1 - cz*s1)/cxz,   cxz*c1,(-cy*cz*c1+cx*s1)/cxz},
+                    {   (cx*cy*s1-cz*c1)/cxz,  -cxz*s1, (cy*cz*s1+cx*c1)/cxz},
+            });
+            }
+            return t;
+        }
+        
         private void ElementStiffnessMatrix(Line currentLine, double E, double A, double Iy, double Iz, double J, double G, out Point3d p1, out Point3d p2, out Matrix<double> Ke)
         {
             double L = Math.Round(currentLine.Length, 6);
@@ -878,14 +879,16 @@ namespace Beam3D
             foreach (Line currentLine in geometry)
             {
                 Matrix<double> Ke;
-                Point3d p1;
-                Point3d p2;
+                Point3d p1, p2;
+
+                //Calculate Ke
                 ElementStiffnessMatrix(currentLine, E, A, Iy, Iz, J, G, out p1, out p2, out Ke);
 
+                //Fetch correct point indices
                 int node1 = points.IndexOf(p1);
                 int node2 = points.IndexOf(p2);
 
-                //Inputting values to correct entries in Global Stiffness Matrix
+                //Inputting Ke to correct entries in Global Stiffness Matrix
                 for (int i = 0; i < Ke.RowCount / 2; i++)
                 {
                     for (int j = 0; j < Ke.ColumnCount / 2; j++)
