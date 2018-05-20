@@ -292,7 +292,6 @@ namespace Beam3D
             defGeometry = new List<Curve>();
             def_shape = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 6);
             glob_strain = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 6);
-            Matrix<double> N, B;
             Vector<double> u = Vector<double>.Build.Dense(12);
             Vector<double> v = Vector<double>.Build.Dense(12);
             newXYZ = new List<Point3d>();
@@ -300,6 +299,8 @@ namespace Beam3D
 
             for (int i = 0; i < geometry.Count; i++)
             {
+                Matrix<double> N, B;
+
                 //fetches index of original start and endpoint
                 int i1 = points.IndexOf(geometry[i].From);
                 int i2 = points.IndexOf(geometry[i].To);
@@ -324,11 +325,11 @@ namespace Beam3D
 
                 //Calculate 6 dofs for all new elements using shape functions (n+1 elements)
                 Matrix<double> disp = Matrix<double>.Build.Dense(n + 1, 4);
-                Matrix<double> rot = Matrix<double>.Build.Dense(n + 1, 4);
+                Matrix<double> rot = Matrix<double>.Build.Dense(n + 1, 3);
 
                 //to show scaled deformations
                 Matrix<double> scaled_disp = Matrix<double>.Build.Dense(n + 1, 4);
-                Matrix<double> scale_rot = Matrix<double>.Build.Dense(n + 1, 4);
+                Matrix<double> scale_rot = Matrix<double>.Build.Dense(n + 1, 3);
                 
                 //prepare deformation vector for scaled results (for drawing of deformed geometry)
                 if (scale != 1)
@@ -343,12 +344,19 @@ namespace Beam3D
                 //set correct deformations to start and end-node (to save computation time of shapefunctions)
                 disp.SetRow(0, new double[] { u[0], u[1], u[2], u[3] });
                 disp.SetRow(n, new double[] { u[6], u[7], u[8], u[9] });
-                rot.SetRow(0, new double[] { 0, u[5], -u[4], 0 });
-                rot.SetRow(n, new double[] { 0, u[11], -u[10], 0 });
+
+                DisplacementField_B(L, 0, out B);
+                rot.SetRow(0, B.Multiply(u));
+
+                DisplacementField_B(L, L, out B);
+                rot.SetRow(n, B.Multiply(u));
+
+                //rot.SetRow(0, new double[] { 0, u[5], -u[4], 0 });
+                //rot.SetRow(n, new double[] { 0, u[11], -u[10], 0 });
 
                 for (int j = 1; j < n; j++)
                 {
-                    Shapefunctions(L, x[j], out N, out B);
+                    DisplacementField_NB(L, x[j], out N, out B);
 
                     //multiply by u-vector (nodal deformation values)
                     disp.SetRow(j, N.Multiply(u));
@@ -497,11 +505,10 @@ namespace Beam3D
             }
             return y;
         }
-
-        private void Shapefunctions(double L, double x, out Matrix<double> N, out Matrix<double> dN)
+        private void DisplacementField_NB(double L, double x, out Matrix<double> N, out Matrix<double> dN)
         {
-            double N1 = 1 - x / L;
             double N2 = x / L;
+            double N1 = 1 - N2;//1 - x / L;
             double N3 = 1 - 3 * Math.Pow(x, 2) / Math.Pow(L, 2) + 2 * Math.Pow(x, 3) / Math.Pow(L, 3);
             double N4 = x - 2 * Math.Pow(x, 2) / L + Math.Pow(x, 3) / Math.Pow(L, 2);
             double N5 = -N3 + 1;//3 * Math.Pow(x, 2) / Math.Pow(L, 2) - 2 * Math.Pow(x, 3) / Math.Pow(L, 3);
@@ -513,11 +520,8 @@ namespace Beam3D
                 { 0, 0, N3, 0, -N4, 0, 0, 0, N5, 0, -N6, 0},
                 { 0, 0, 0, N1, 0, 0, 0, 0, 0, N2, 0, 0} });
 
-            //u = N*v, where v = nodal deformation values [u1, u2, u3, u4, u5, u6, u7, u8, u9, u10, u11, u12]
-            //u = [ux, uy, uz, theta_x]
-
             double dN1 = -1 / L;
-            double dN2 = 1 / L;
+            double dN2 = -dN1;//1 / L;
             double dN3 = -6 * x / Math.Pow(L, 2) + 6 * Math.Pow(x, 2) / Math.Pow(L, 3);
             double dN4 = 3 * Math.Pow(x, 2) / Math.Pow(L, 2) - 4 * x / L + 1;
             double dN5 = -dN3;//6 * x / Math.Pow(L, 2) - 6 * Math.Pow(x, 2) / Math.Pow(L, 3);
@@ -526,11 +530,24 @@ namespace Beam3D
             dN = Matrix<double>.Build.DenseOfArray(new double[,] {
                 { dN1, 0,    0,  0,  0,     0,  dN2,    0,  0,  0,    0,    0},
                 { 0, dN3,    0,  0,  0,  dN4,   0,  dN5,    0,  0,    0, dN6 },
-                { 0,    0, dN3,  0, -dN4,   0,  0,      0,dN5,  0, -dN6,    0},
-                { 0,    0,   0, dN1, 0,     0,  0,      0,  0, dN2,  0,     0} });
+                { 0,    0, dN3,  0, -dN4,   0,  0,      0,dN5,  0, -dN6,    0}
+            });
+        }
 
-            //theta_y = du_z/dx
-            //theta_z = du_y/dx
+        private void DisplacementField_B(double L, double x, out Matrix<double> dN)
+        {
+            double dN1 = -1 / L;
+            double dN2 = -dN1;//1 / L;
+            double dN3 = -6 * x / Math.Pow(L, 2) + 6 * Math.Pow(x, 2) / Math.Pow(L, 3);
+            double dN4 = 3 * Math.Pow(x, 2) / Math.Pow(L, 2) - 4 * x / L + 1;
+            double dN5 = -dN3;//6 * x / Math.Pow(L, 2) - 6 * Math.Pow(x, 2) / Math.Pow(L, 3);
+            double dN6 = 3 * Math.Pow(x, 2) / Math.Pow(L, 2) - 2 * x / L;
+
+            dN = Matrix<double>.Build.DenseOfArray(new double[,] {
+                { dN1, 0,    0,  0,  0,     0,  dN2,    0,  0,  0,    0,    0},
+                { 0, dN3,    0,  0,  0,  dN4,   0,  dN5,    0,  0,    0, dN6 },
+                { 0,    0, dN3,  0, -dN4,   0,  0,      0,dN5,  0, -dN6,    0}
+            });
         }
 
         private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, Vector<double> bdc_value)
