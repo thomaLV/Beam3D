@@ -39,7 +39,7 @@ namespace Beam3D
             {
                 startTest = i;
             }
-            if (s == "Show stressList")
+            if (s == "AboveLimit")
             {
                 stressList = i;
             }
@@ -243,7 +243,7 @@ namespace Beam3D
             DA.SetDataTree(3, strain_nested);
             DA.SetDataTree(4, mises_nested);
             DA.SetDataList(5, defGeometry);
-            DA.SetDataList(6, s);
+            if (stressList) { DA.SetDataList(6, s); };
 
         } //End of main component
 
@@ -1193,7 +1193,7 @@ namespace Beam3D
                 }
                 if (channel == GH_CanvasChannel.Objects)
                 {
-                    GH_Capsule button3 = GH_Capsule.CreateTextCapsule(ButtonBounds3, ButtonBounds3, zColor, "Show stressList", 2, 0);
+                    GH_Capsule button3 = GH_Capsule.CreateTextCapsule(ButtonBounds3, ButtonBounds3, zColor, "AboveLimit", 2, 0);
                     button3.Render(graphics, Selected, Owner.Locked, false);
                     button3.Dispose();
                 }
@@ -1224,9 +1224,9 @@ namespace Beam3D
                     rec = ButtonBounds3;
                     if (rec.Contains(e.CanvasLocation))
                     {
-                        switchColor("Show stressList");
-                        if (zColor == GH_Palette.Black) { CalcComponent.setStart("Show stressList", true); Owner.ExpireSolution(true); }
-                        if (zColor == GH_Palette.Grey) { CalcComponent.setStart("Show stressList", false); }
+                        switchColor("AboveLimit");
+                        if (zColor == GH_Palette.Black) { CalcComponent.setStart("AboveLimit", true); Owner.ExpireSolution(true); }
+                        if (zColor == GH_Palette.Grey) { CalcComponent.setStart("AboveLimit", false); }
                         sender.Refresh();
                         return GH_ObjectResponse.Handled;
                     }
@@ -1246,7 +1246,7 @@ namespace Beam3D
                     if (yColor == GH_Palette.Black) { yColor = GH_Palette.Grey; }
                     else { yColor = GH_Palette.Black; }
                 }
-                else if (button == "Show stressList")
+                else if (button == "AboveLimit")
                 {
                     if (zColor == GH_Palette.Black) { zColor = GH_Palette.Grey; }
                     else { zColor = GH_Palette.Black; }
