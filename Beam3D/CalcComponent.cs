@@ -296,10 +296,10 @@ namespace Beam3D
                         Math.Pow(glob_stress[i, j * 6] - glob_stress[i, j * 6 + 1], 2) + 
                         Math.Pow(glob_stress[i, j * 6 + 1] - glob_stress[i, j * 6 + 2], 2) + 
                         Math.Pow(glob_stress[i, j * 6 + 2] - glob_stress[i, j * 6], 2)
-                       + 6 * (
+                       + 3 * ( //NB! multiplication factor 3 is for shear stress12, 23 and 31, while mf should be 6 for stress12, 23, 31
                        glob_stress[i, j * 6 + 3] * glob_stress[i, j * 6 + 3] + 
                        glob_stress[i, j * 6 + 4] * glob_stress[i, j * 6 + 4] + 
-                       glob_stress[i, j * 6 + 5] * glob_stress[i, j * 6 + 5])));
+                       glob_stress[i, j * 6 + 5] * glob_stress[i, j * 6 + 5]))); 
                     mises_stress[i, j] = sig_v;
                 }
             }
