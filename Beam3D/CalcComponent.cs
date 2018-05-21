@@ -49,7 +49,7 @@ namespace Beam3D
         {
             pManager.AddLineParameter("Lines", "LNS", "Geometry, in form of Lines)", GH_ParamAccess.list);
             pManager.AddTextParameter("Boundary Conditions", "BDC", "Boundary Conditions in form x,y,z,vx,vy,vz,rx,ry,rz", GH_ParamAccess.list);
-            pManager.AddTextParameter("Material properties", "Mat", "Material Properties", GH_ParamAccess.item, "210000,3600,4920000,4920000,79300");
+            pManager.AddTextParameter("Material properties", "Mat", "Material Properties", GH_ParamAccess.item, "210000,3600,4920000,4920000,79300, 0.3");
             pManager.AddTextParameter("PointLoads", "PL", "Load given as Vector [N]", GH_ParamAccess.list);
             pManager.AddTextParameter("PointMoment", "PM", "Moment set in a point in [Nm]", GH_ParamAccess.list, "");
             pManager.AddIntegerParameter("Elements", "n", "Number of elements", GH_ParamAccess.item, 1);
@@ -97,7 +97,8 @@ namespace Beam3D
             double Iz;      //Moment of inertia about local z axis, initial value 4.92E6 [mm^4]
             double J;       //Polar moment of inertia
             double G;       //Shear modulus, initial value 79300 [mm^4]
-            SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G);
+            double v;       //Poisson's ratio, initial value 0.3
+            SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G, out v);
 
             #region Prepares geometry, boundary conditions and loads for calculation
             //List all nodes (every node only once), numbering them according to list index
@@ -202,7 +203,7 @@ namespace Beam3D
                 InterpolateDeformations(def_tot, points, geometry, n, scale, out def_shape, out defGeometry, out newXYZ, out oldXYZ, out glob_strain);
 
                 //Calculate the internal strains and stresses in each member
-                CalculateInternalStresses(glob_strain, E, G, out glob_stress);
+                CalculateInternalStresses(glob_strain, E, G, v, out glob_stress);
 
                 //Calculate the internal strains and stresses in each member
                 CalculateMisesStresses(glob_stress, out mises_stress);
@@ -246,24 +247,32 @@ namespace Beam3D
             {
                 for (int j = 0; j < glob_stress.ColumnCount/6; j++)
                 {
-                    sig_v = Math.Sqrt(0.5 * (Math.Pow(glob_stress[i, j * 6] - glob_stress[i, j * 6 + 1], 2) + Math.Pow(glob_stress[i, j * 6 + 1] - glob_stress[i, j * 6 + 2], 2) + Math.Pow(glob_stress[i, j * 6 + 2] - glob_stress[i, j * 6], 2)))
-                       + Math.Sqrt(3 * (glob_stress[i, j * 6 + 3] * glob_stress[i, j * 6 + 3] + glob_stress[i, j * 6 + 4] * glob_stress[i, j * 6 + 4] + glob_stress[i, j * 6 + 5] * glob_stress[i, j * 6 + 5]));
+                    sig_v = Math.Sqrt(0.5 *(
+                        Math.Pow(glob_stress[i, j * 6] - glob_stress[i, j * 6 + 1], 2) + 
+                        Math.Pow(glob_stress[i, j * 6 + 1] - glob_stress[i, j * 6 + 2], 2) + 
+                        Math.Pow(glob_stress[i, j * 6 + 2] - glob_stress[i, j * 6], 2)
+                       + 6 * (
+                       glob_stress[i, j * 6 + 3] * glob_stress[i, j * 6 + 3] + 
+                       glob_stress[i, j * 6 + 4] * glob_stress[i, j * 6 + 4] + 
+                       glob_stress[i, j * 6 + 5] * glob_stress[i, j * 6 + 5])));
                     mises_stress[i, j] = sig_v;
                 }
             }
         }
 
-        private void CalculateInternalStresses(Matrix<double> strain, double E, double G, out Matrix<double> stress)
+        private void CalculateInternalStresses(Matrix<double> strain, double E, double G, double v, out Matrix<double> stress)
         {                
             //strain = [ex, ey, ez, gxy, gyz, gzx]
             stress = Matrix<double>.Build.Dense(strain.RowCount, strain.ColumnCount);
+            double c = E / ((1 + v)*(1 - 2*v));
+            double vc = v * c;
             for (int i = 0; i < strain.RowCount; i++)
             {
                 for (int j = 0; j < strain.ColumnCount/6; j++)
                 {
-                    stress[i, j * 6 + 0] = E * strain[i, j * 6 + 0];
-                    stress[i, j * 6 + 1] = E * strain[i, j * 6 + 1];
-                    stress[i, j * 6 + 2] = E * strain[i, j * 6 + 2];
+                    stress[i, j * 6 + 0] = (1 - v) * c * strain[i, j * 6 + 0] + vc * (strain[i, j * 6 + 1] + strain[i, j * 6 + 2]);
+                    stress[i, j * 6 + 1] = (1 - v) * c * strain[i, j * 6 + 1] + vc * (strain[i, j * 6 + 0] + strain[i, j * 6 + 2]);
+                    stress[i, j * 6 + 2] = (1 - v) * c * strain[i, j * 6 + 2] + vc * (strain[i, j * 6 + 0] + strain[i, j * 6 + 1]);
                     stress[i, j * 6 + 3] = G * strain[i, j * 6 + 3];
                     stress[i, j * 6 + 4] = G * strain[i, j * 6 + 4];
                     stress[i, j * 6 + 5] = G * strain[i, j * 6 + 5];
@@ -461,8 +470,7 @@ namespace Beam3D
                 def_shape.SetRow(i, SetDef(tempOld, tempNew, disp, rot));
             }
         }
-
-
+        
         private double[] SetDef(List<Point3d> oldXYZ, List<Point3d> newXYZ, Matrix<double> disp, Matrix<double> rot)
         {
             double[] def_e = new double[oldXYZ.Count * 6];
@@ -505,6 +513,7 @@ namespace Beam3D
             }
             return y;
         }
+
         private void DisplacementField_NB(double L, double x, out Matrix<double> N, out Matrix<double> dN)
         {
             double N2 = x / L;
@@ -1027,7 +1036,7 @@ namespace Beam3D
             return bdc_value;
         }
         
-        private void SetMaterial(string mattxt, out double E, out double A, out double Iy, out double Iz, out double J, out double G)
+        private void SetMaterial(string mattxt, out double E, out double A, out double Iy, out double Iz, out double J, out double G, out double v)
         {
             string[] matProp = (mattxt.Split(','));
 
@@ -1036,6 +1045,15 @@ namespace Beam3D
             Iy = (Math.Round(double.Parse(matProp[2]), 2));
             Iz = (Math.Round(double.Parse(matProp[3]), 2));
             G = (Math.Round(double.Parse(matProp[4]), 2));
+
+            try //if no v is provided, assume v = 0.3;
+            {
+                v = (Math.Round(double.Parse(matProp[5]), 2));
+            }
+            catch (Exception)
+            {
+                v = 0.3;
+            }
             J = Iy + Iz;
         }
 
