@@ -64,7 +64,7 @@ namespace Beam3D
             pManager.AddGenericParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.tree);
             pManager.AddGenericParameter("Von Mises stress", "Strn", "The Mises Strain in each element", GH_ParamAccess.tree);
             pManager.AddCurveParameter("NurbsCurves", "Crv", "Deformed Geometry", GH_ParamAccess.list);
-            //pManager.AddPointParameter("Points", "P", "Ordered list of deformed points (original xyz)", GH_ParamAccess.list);
+            pManager.AddTextParameter("Above stress limit", "SL", "Main element and sub element above stress limit", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -208,6 +208,7 @@ namespace Beam3D
                 //Calculate the internal strains and stresses in each member
                 CalculateMisesStresses(glob_stress, out mises_stress);
                 #endregion
+
             }
             else
             {
@@ -223,6 +224,7 @@ namespace Beam3D
                 internalStrains = internalStresses;
                 #endregion
             }
+            List<string> s = AboveStressLimit(mises_stress, 350);
 
             Grasshopper.DataTree<double> def_shape_nested = ConvertToNestedList(def_shape);
             Grasshopper.DataTree<double> strain_nested = ConvertToNestedList(glob_strain);
@@ -235,9 +237,46 @@ namespace Beam3D
             DA.SetDataTree(3, strain_nested);
             DA.SetDataTree(4, mises_nested);
             DA.SetDataList(5, defGeometry);
-
+            DA.SetDataList(6, s);
 
         } //End of main component
+
+        private List<string> AboveStressLimit(Matrix<double> mises_stress, double limit)
+        {
+            List<string> s = new List<string>();
+            for (int i = 0; i < mises_stress.RowCount; i++)
+            {
+                string ts = "";
+                string ds = "";
+                bool f = true;
+                for (int j = 0; j < mises_stress.ColumnCount; j++)
+                {
+                    if (mises_stress[i,j] > limit)
+                    {
+                        if (f)
+                        {
+                            ts += j;
+                            ds += Math.Round(mises_stress[i, j]);
+                            f = false;
+                        }
+                        else
+                        {
+                            ts += ", " + j;
+                            ds += ", " + Math.Round(mises_stress[i, j]);
+                        }
+                    }
+                }
+                if (ts.Length > 0)
+                {
+                    s.Add("Main element: " + i + "; Sub element(s): " + ts + "; Stresses: " + ds);
+                }
+            }
+            if (s.Count == 0)
+            {
+                s.Add("No elements had stresses above: " + limit + "[MPa]");
+            }
+            return s;
+        }
 
         private void CalculateMisesStresses(Matrix<double> glob_stress, out Matrix<double> mises_stress)
         {
