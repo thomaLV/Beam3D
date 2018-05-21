@@ -23,9 +23,10 @@ namespace Beam3D
         {
         }
 
-        //Initialize moments
+        //Initialize component
         static bool startCalc = false;
         static bool startTest = false;
+        static bool stressList = false;
 
         //Method to allow c hanging of variables via GUI (see Component Visual)
         public static void setStart(string s, bool i)
@@ -37,6 +38,10 @@ namespace Beam3D
             if (s == "Run Test")
             {
                 startTest = i;
+            }
+            if (s == "Show stressList")
+            {
+                stressList = i;
             }
         }
 
@@ -224,7 +229,8 @@ namespace Beam3D
                 internalStrains = internalStresses;
                 #endregion
             }
-            List<string> s = AboveStressLimit(mises_stress, 350);
+            List<string> s = new List<string>();
+            if (stressList) { s = AboveStressLimit(mises_stress, 350); };
 
             Grasshopper.DataTree<double> def_shape_nested = ConvertToNestedList(def_shape);
             Grasshopper.DataTree<double> strain_nested = ConvertToNestedList(glob_strain);
@@ -1152,14 +1158,19 @@ namespace Beam3D
                 Rectangle rec2 = rec1;
                 rec2.X = rec1.Right + 2;
 
+                Rectangle rec3 = rec1;
+                rec3.X = rec2.Right + 2;
+
                 Bounds = rec0;
                 ButtonBounds = rec1;
                 ButtonBounds2 = rec2;
+                ButtonBounds3 = rec3;
 
             }
 
             GH_Palette xColor = GH_Palette.Grey;
             GH_Palette yColor = GH_Palette.Grey;
+            GH_Palette zColor = GH_Palette.Grey;
 
             private Rectangle ButtonBounds { get; set; }
             private Rectangle ButtonBounds2 { get; set; }
@@ -1179,6 +1190,12 @@ namespace Beam3D
                     GH_Capsule button2 = GH_Capsule.CreateTextCapsule(ButtonBounds2, ButtonBounds2, yColor, "Run Test", 2, 0);
                     button2.Render(graphics, Selected, Owner.Locked, false);
                     button2.Dispose();
+                }
+                if (channel == GH_CanvasChannel.Objects)
+                {
+                    GH_Capsule button3 = GH_Capsule.CreateTextCapsule(ButtonBounds3, ButtonBounds3, zColor, "Show stressList", 2, 0);
+                    button3.Render(graphics, Selected, Owner.Locked, false);
+                    button3.Dispose();
                 }
             }
 
@@ -1204,6 +1221,15 @@ namespace Beam3D
                         sender.Refresh();
                         return GH_ObjectResponse.Handled;
                     }
+                    rec = ButtonBounds3;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("Show stressList");
+                        if (zColor == GH_Palette.Black) { CalcComponent.setStart("Show stressList", true); Owner.ExpireSolution(true); }
+                        if (zColor == GH_Palette.Grey) { CalcComponent.setStart("Show stressList", false); }
+                        sender.Refresh();
+                        return GH_ObjectResponse.Handled;
+                    }
                 }
                 return base.RespondToMouseDown(sender, e);
             }
@@ -1219,6 +1245,11 @@ namespace Beam3D
                 {
                     if (yColor == GH_Palette.Black) { yColor = GH_Palette.Grey; }
                     else { yColor = GH_Palette.Black; }
+                }
+                else if (button == "Show stressList")
+                {
+                    if (zColor == GH_Palette.Black) { zColor = GH_Palette.Grey; }
+                    else { zColor = GH_Palette.Black; }
                 }
             }
         }
