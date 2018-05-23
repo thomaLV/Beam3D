@@ -346,7 +346,7 @@ namespace Beam3D
         {
             defGeometry = new List<Curve>();
             def_shape = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 6);
-            glob_strain = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 6);
+            glob_strain = Matrix<double>.Build.Dense(geometry.Count, n * 6);
             Vector<double> u = Vector<double>.Build.Dense(12);
             Vector<double> v = Vector<double>.Build.Dense(12);
             newXYZ = new List<Point3d>();
@@ -493,23 +493,26 @@ namespace Beam3D
                 newXYZ.AddRange(tempNew);
                 oldXYZ.AddRange(tempOld);
 
-                //add deformation to def_shape (convert from i = nodal number to i = element number)
+
+                //calculate strain for each subelement
                 List<double> tempStrain = new List<double>((n + 1) * 6);
-                for (int j = 0; j < n + 1; j++)
+                for (int j = 0; j < n; j++)
                 {
                     for (int jj = 0; jj < 3; jj++)
                     {
-                        tempStrain.Add(rot[j, jj]);
+                        tempStrain.Add(rot[j, jj] + rot[j + 1, jj]); //eps_node,i + eps_node,i+1 = eps_element, i
                     }
-                    double temp_xy = rot[j, 0] + rot[j, 1];
-                    double temp_yz_zy = rot[j, 1] + rot[j, 2];
-                    double temp_zx_xz = rot[j, 2] + rot[j, 0];
+                    double temp_xy = rot[j, 0] + rot[j, 1] + rot[j + 1, 0] + rot[j + 1, 1];
+                    double temp_yz_zy = rot[j, 1] + rot[j, 2] + rot[j + 1, 1] + rot[j + 1, 2];
+                    double temp_zx_xz = rot[j, 2] + rot[j, 0] + rot[j + 1, 2] + rot[j + 1, 0];
                     tempStrain.Add(temp_xy);
                     tempStrain.Add(temp_yz_zy);
                     tempStrain.Add(temp_zx_xz);
                 }
                 var tS = Vector<double>.Build.DenseOfEnumerable(tempStrain);
                 glob_strain.SetRow(i, tS);
+
+                //add deformation to def_shape (convert from i = nodal number to i = element number)
                 def_shape.SetRow(i, SetDef(tempOld, tempNew, disp, rot));
             }
         }
