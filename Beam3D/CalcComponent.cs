@@ -54,7 +54,7 @@ namespace Beam3D
         {
             pManager.AddLineParameter("Lines", "LNS", "Geometry, in form of Lines)", GH_ParamAccess.list);
             pManager.AddTextParameter("Boundary Conditions", "BDC", "Boundary Conditions in form x,y,z,vx,vy,vz,rx,ry,rz", GH_ParamAccess.list);
-            pManager.AddTextParameter("Material properties", "Mat", "Material Properties", GH_ParamAccess.item, "210000,3600,4920000,4920000,79300, 0.3");
+            pManager.AddTextParameter("Material properties", "Mat", "Material Properties: E, A, Iy, Iz, G, v", GH_ParamAccess.item, "210000,3600,4920000,4920000,79300, 0.3");
             pManager.AddTextParameter("PointLoads", "PL", "Load given as Vector [N]", GH_ParamAccess.list);
             pManager.AddTextParameter("PointMoment", "PM", "Moment set in a point in [Nm]", GH_ParamAccess.list, "");
             pManager.AddIntegerParameter("Elements", "n", "Number of elements", GH_ParamAccess.item, 1);
@@ -309,18 +309,19 @@ namespace Beam3D
         {                
             //strain = [ex, ey, ez, gxy, gyz, gzx]
             stress = Matrix<double>.Build.Dense(strain.RowCount, strain.ColumnCount);
-            double c = E / ((1 + v)*(1 - 2*v));
-            double vc = v * c;
+            double c = E / ((1.0 + v)*(1.0 - 2.0*v));
             for (int i = 0; i < strain.RowCount; i++)
             {
+                Debug.WriteLine(strain.Row(i));
                 for (int j = 0; j < strain.ColumnCount/6; j++)
                 {
-                    stress[i, j * 6 + 0] = (1 - v) * c * strain[i, j * 6 + 0] + vc * (strain[i, j * 6 + 1] + strain[i, j * 6 + 2]);
-                    stress[i, j * 6 + 1] = (1 - v) * c * strain[i, j * 6 + 1] + vc * (strain[i, j * 6 + 0] + strain[i, j * 6 + 2]);
-                    stress[i, j * 6 + 2] = (1 - v) * c * strain[i, j * 6 + 2] + vc * (strain[i, j * 6 + 0] + strain[i, j * 6 + 1]);
+                    stress[i, j * 6 + 0] = c * ((1 - v) * strain[i, j * 6 + 0] + v * (strain[i, j * 6 + 1] + strain[i, j * 6 + 2]));
+                    stress[i, j * 6 + 1] = c * ((1 - v) * strain[i, j * 6 + 1] + v * (strain[i, j * 6 + 0] + strain[i, j * 6 + 2]));
+                    stress[i, j * 6 + 2] = c * ((1 - v) * strain[i, j * 6 + 2] + v * (strain[i, j * 6 + 0] + strain[i, j * 6 + 1]));
                     stress[i, j * 6 + 3] = G * strain[i, j * 6 + 3];
                     stress[i, j * 6 + 4] = G * strain[i, j * 6 + 4];
                     stress[i, j * 6 + 5] = G * strain[i, j * 6 + 5];
+                    Debug.WriteLine(stress.Row(i));
                 }
             }
         }
@@ -404,10 +405,7 @@ namespace Beam3D
 
                 DisplacementField_B(L, L, out B);
                 rot.SetRow(n, B.Multiply(u));
-
-                //rot.SetRow(0, new double[] { 0, u[5], -u[4], 0 });
-                //rot.SetRow(n, new double[] { 0, u[11], -u[10], 0 });
-
+                
                 for (int j = 1; j < n; j++)
                 {
                     DisplacementField_NB(L, x[j], out N, out B);
@@ -521,11 +519,11 @@ namespace Beam3D
             double[] def_e = new double[oldXYZ.Count * 6];
             for (int i = 0; i < oldXYZ.Count; i++)
             {
-                //calculate distance from original interpolated points to deformed points          
+                //add displacements in x,y,z       
                 def_e[i * 6 + 0] = disp[i, 0];
                 def_e[i * 6 + 1] = disp[i, 1];
                 def_e[i * 6 + 2] = disp[i, 2];
-                //add already correct rotations
+                //add rotations
                 def_e[i * 6 + 3] = disp[i, 3];
                 def_e[i * 6 + 4] = rot[i, 2]; //theta_y = d_uz/d_x
                 def_e[i * 6 + 5] = rot[i, 1]; //theta_z = d_uy/d_x
