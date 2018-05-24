@@ -500,11 +500,12 @@ namespace Beam3D
                 {
                     for (int jj = 0; jj < 3; jj++)
                     {
-                        tempStrain.Add(rot[j, jj] + rot[j + 1, jj]); //eps_node,i + eps_node,i+1 = eps_element, i
+                        tempStrain.Add(rot[j + 1, jj] - rot[j, jj]); //eps_node,i + eps_node,i+1 = eps_element, i 
+                        //skifta rekkefølge
                     }
-                    double temp_xy = rot[j, 0] + rot[j, 1] + rot[j + 1, 0] + rot[j + 1, 1];
-                    double temp_yz_zy = rot[j, 1] + rot[j, 2] + rot[j + 1, 1] + rot[j + 1, 2];
-                    double temp_zx_xz = rot[j, 2] + rot[j, 0] + rot[j + 1, 2] + rot[j + 1, 0];
+                    double temp_xy = -(rot[j, 0] + rot[j, 1]) + rot[j + 1, 0] + rot[j + 1, 1]; //skifta rekkefølge
+                    double temp_yz_zy = -(rot[j, 1] + rot[j, 2]) + rot[j + 1, 1] + rot[j + 1, 2]; //skifta rekkefølge
+                    double temp_zx_xz = -(rot[j, 2] + rot[j, 0]) + rot[j + 1, 2] + rot[j + 1, 0]; //skifta rekkefølge
                     tempStrain.Add(temp_xy);
                     tempStrain.Add(temp_yz_zy);
                     tempStrain.Add(temp_zx_xz);
@@ -572,7 +573,7 @@ namespace Beam3D
             N = Matrix<double>.Build.DenseOfArray(new double[,] {
                 { N1, 0, 0,  0,  0,  0, N2, 0,  0,  0,  0,  0},
                 { 0, N3, 0,  0,  0, N4, 0, N5, 0,  0,  0, N6 },
-                { 0, 0, N3, 0, -N4, 0, 0, 0, N5, 0, -N6, 0},
+                { 0, 0, N3, 0, -N4,  0, 0, 0, N5, 0, -N6, 0},
                 { 0, 0, 0, N1, 0, 0, 0, 0, 0, N2, 0, 0} });
 
             double dN1 = -1 / L;
