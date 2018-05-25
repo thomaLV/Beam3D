@@ -396,14 +396,14 @@ namespace Beam3D
                 //fetches index of original start and endpoint
                 int i1 = points.IndexOf(geometry[i].From);
                 int i2 = points.IndexOf(geometry[i].To);
-
                 //create 12x1 deformation vector for element (6dofs), scaled and populated with existing deformations
                 for (int j = 0; j < 6; j++)
                 {
                     u[j] = def[i1 * 6 + j];
                     u[j + 6] = def[i2 * 6 + j];
                 }
-                
+                Debug.WriteLine(u);
+
                 //interpolate points between startNode and endNode of undeformed (main) element
                 List<Point3d> tempNew = InterpolatePoints(geometry[i], n);
                 List<Point3d> tempOld = new List<Point3d>(tempNew);
@@ -487,7 +487,7 @@ namespace Beam3D
                     }
                 }
                 rot.SetColumn(2, -rot.Column(2));
-                
+
 
                 Matrix<double> epsB = Matrix<double>.Build.Dense(n + 1, 4);
                 Vector<double> epsA = Vector<double>.Build.Dense(n + 1);
@@ -510,7 +510,8 @@ namespace Beam3D
                     //ddN = -y * ddN;
 
                     epsB.SetRow(j, ddN.Multiply(u));
-                    epsA[j] = dN.Row(j) * u;
+                    var tempA = dN * u;
+                    epsA[j] = tempA[0];
                     Debug.WriteLine(epsB.Row(j));
                     Debug.WriteLine(epsA[j]);
                 }
@@ -662,16 +663,15 @@ namespace Beam3D
                 //        }
                 //        Debug.WriteLine(ts[j]);
                 //    }
-#endregion
-
+                #endregion
+                epsB = y * epsB;
                 var tempY = Vector<double>.Build.Dense(n+1);
                 for (int j = 0; j < n+1; j++)
                 {
                     Debug.WriteLine(epsB);
                     Debug.WriteLine(epsA);
-                    epsB = y * epsB;
 
-                    if (epsA[j] >= 0)
+                    if (epsA[j] > 0)
                     {
                         tempY[j] = Math.Abs(epsB[j, 1]) + Math.Abs(epsB[j, 2]) + epsA[j];
                     }
@@ -680,6 +680,7 @@ namespace Beam3D
                         tempY[j] = -Math.Abs(epsB[j, 1]) -Math.Abs(epsB[j, 2]) + epsA[j];
                     }
                     tempM[j] = epsB[j, 2];
+                    Debug.WriteLine(tempY);
                 }
                 glob_strain.SetRow(i, tempY);
             }
