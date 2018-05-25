@@ -67,7 +67,7 @@ namespace Beam3D
             pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
             pManager.AddGenericParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.tree);
             pManager.AddGenericParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.tree);
-            pManager.AddGenericParameter("Von Mises stress", "Strn", "The Mises Strain in each element", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Moment", "Strn", "The Mises Strain in each element", GH_ParamAccess.list);
             pManager.AddCurveParameter("NurbsCurves", "Crv", "Deformed Geometry", GH_ParamAccess.list);
             pManager.AddTextParameter("Above stress limit", "SL", "Main element and sub element above stress limit", GH_ParamAccess.list);
         }
@@ -126,6 +126,7 @@ namespace Beam3D
             Vector<double> reactions;
             List<double> internalStresses;
             List<double> internalStrains;
+            Vector<double> tempM;
             List<Curve> defGeometry = new List<Curve>();    //output deformed geometry
 
 
@@ -205,7 +206,7 @@ namespace Beam3D
 
                 //Interpolate deformations using shape functions
                 List<Point3d> newXYZ, oldXYZ;
-                InterpolateDeformations(def_tot, points, geometry, n, scale, out def_shape, out defGeometry, out newXYZ, out oldXYZ, out glob_strain);
+                InterpolateDeformations(def_tot, points, geometry, n, scale, out def_shape, out defGeometry, out newXYZ, out oldXYZ, out glob_strain, out tempM);
 
                 //CalculateStrains(oldXYZ, newXYZ, n, geometry.Count, 150, def_shape, out glob_strain);
 
@@ -225,7 +226,7 @@ namespace Beam3D
                 def_shape = Matrix<double>.Build.Dense(geometry.Count, 6 * (n + 1));
                 glob_strain = def_shape;
                 glob_stress = def_shape;
-                mises_stress = def_shape;
+                tempM = reactions;
 
                 internalStresses = new List<double>(geometry.Count);
                 internalStresses.AddRange(new double[geometry.Count]);
@@ -239,12 +240,13 @@ namespace Beam3D
             Grasshopper.DataTree<double> strain_nested = ConvertToNestedList(glob_strain);
             Grasshopper.DataTree<double> stresses_nested = ConvertToNestedList(glob_stress);
             //Grasshopper.DataTree<double> mises_nested = ConvertToNestedList(mises_stress);
+            tempM = tempM * E * Iz;
 
             DA.SetDataTree(0, def_shape_nested);
             DA.SetDataList(1, reactions);
             DA.SetDataTree(2, stresses_nested);
             DA.SetDataTree(3, strain_nested);
-            //DA.SetDataTree(4, mises_nested);
+            DA.SetDataList(4, tempM);
             DA.SetDataList(5, defGeometry);
             if (stressList) { DA.SetDataList(6, s); };
 
@@ -375,15 +377,17 @@ namespace Beam3D
             return def_shape_nested;
         }
 
-        private void InterpolateDeformations(Vector<double> def, List<Point3d> points, List<Line> geometry, int n, int scale, out Matrix<double> def_shape, out List<Curve> defGeometry, out List<Point3d> newXYZ, out List<Point3d> oldXYZ, out Matrix<double> glob_strain)
+        private void InterpolateDeformations(Vector<double> def, List<Point3d> points, List<Line> geometry, int n, int scale, out Matrix<double> def_shape, out List<Curve> defGeometry, out List<Point3d> newXYZ, out List<Point3d> oldXYZ, out Matrix<double> glob_strain, out Vector<double> tempM)
         {
             defGeometry = new List<Curve>();
             def_shape = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 6);
-            glob_strain = Matrix<double>.Build.Dense(geometry.Count, n);
+            glob_strain = Matrix<double>.Build.Dense(geometry.Count, n + 1);
             Vector<double> u = Vector<double>.Build.Dense(12);
             Vector<double> v = Vector<double>.Build.Dense(12);
             newXYZ = new List<Point3d>();
             oldXYZ = new List<Point3d>();
+
+            tempM = Vector<double>.Build.Dense(n + 1);
 
             for (int i = 0; i < geometry.Count; i++)
             {
@@ -439,47 +443,15 @@ namespace Beam3D
                 DisplacementField_B(L, L, out dN);
                 rot.SetRow(n, dN.Multiply(u));
 
-                Vector<double> eps_xx = Vector<double>.Build.Dense(n + 1);
-                Vector<double> ddN;
-                var z = 100;
-
-
-                DisplacementField_ddN(L, 0, out ddN);
-                ddN = -z * ddN;
-                Debug.WriteLine(u);
-                Debug.WriteLine(ddN);
-
-                eps_xx[0] = ddN * u;
-                Debug.WriteLine(eps_xx[0]);
-
-                DisplacementField_ddN(L, L, out ddN);
-                ddN = -z * ddN;
-                eps_xx[n] = ddN * u;
-
-
                 for (int j = 1; j < n; j++)
                 {
 
                     DisplacementField_NB(L, x[j], out N, out dN);
-
-                    DisplacementField_ddN(L, x[j], out ddN);
-
-
-                    //http://what-when-how.com/the-finite-element-method/fem-for-beams-finite-element-method-part-1/
-                    ddN = -z * ddN;
-                    Debug.WriteLine(u);
-                    Debug.WriteLine(ddN);
-
-                    eps_xx[j] = ddN * u;
-                    Debug.WriteLine(eps_xx[j]);
-
-
+                    
                     //multiply by u-vector (nodal deformation values)
                     disp.SetRow(j, N.Multiply(u));
                     rot.SetRow(j, dN.Multiply(u));
-
-
-
+                    
                     #region deprecated code
                     //transform to global coords
                     //var tempDef = Vector<double>.Build.DenseOfArray(new double[] { disp[i, 0], disp[i, 1], disp[i, 2] });
@@ -515,7 +487,35 @@ namespace Beam3D
                     }
                 }
                 rot.SetColumn(2, -rot.Column(2));
+                
 
+                Matrix<double> epsB = Matrix<double>.Build.Dense(n + 1, 4);
+                Vector<double> epsA = Vector<double>.Build.Dense(n + 1);
+                Matrix<double> ddN;
+                var y = 50;
+
+                var t = TransformationMatrix(geometry[i].From, geometry[i].To, 0);
+                var T = t.DiagonalStack(t);
+                T = T.DiagonalStack(T);
+                Debug.WriteLine(u);
+                u = T * u;
+                Debug.WriteLine(u);
+
+
+                for (int j = 0; j < n + 1; j++)
+                {
+                    DisplacementField_ddN(L, x[j], out ddN);   //http://what-when-how.com/the-finite-element-method/fem-for-beams-finite-element-method-part-1/
+                    DisplacementField_B(L, x[j], out dN);
+                    
+                    //ddN = -y * ddN;
+
+                    epsB.SetRow(j, ddN.Multiply(u));
+                    epsA[j] = dN.Row(j) * u;
+                    Debug.WriteLine(epsB.Row(j));
+                    Debug.WriteLine(epsA[j]);
+                }
+
+                #region Create curves
                 for (int j = 0; j < n + 1; j++)
                 {
                     if (scale != 1)
@@ -570,8 +570,11 @@ namespace Beam3D
                         tempNew[j] = tP;
                         tempNew_unscaled[j] = tP;
                     }
+                   
                 }
+                #endregion
 
+                #region Hide (don't delete)
                 //Create Curve based on new nodal points (degree = 3)
                 Curve nc = Curve.CreateInterpolatedCurve(tempNew, 3);
                 defGeometry.Add(nc);
@@ -659,14 +662,26 @@ namespace Beam3D
                 //        }
                 //        Debug.WriteLine(ts[j]);
                 //    }
-                var tempE = Vector<double>.Build.Dense(n);
-                for (int j = 0; j < n; j++)
+#endregion
+
+                var tempY = Vector<double>.Build.Dense(n+1);
+                for (int j = 0; j < n+1; j++)
                 {
-                    Debug.WriteLine(eps_xx);
-                    tempE[j] = eps_xx[j + 1] - eps_xx[j];
-                    Debug.WriteLine(tempE);
+                    Debug.WriteLine(epsB);
+                    Debug.WriteLine(epsA);
+                    epsB = y * epsB;
+
+                    if (epsA[j] >= 0)
+                    {
+                        tempY[j] = Math.Abs(epsB[j, 1]) + Math.Abs(epsB[j, 2]) + epsA[j];
+                    }
+                    else
+                    {
+                        tempY[j] = -Math.Abs(epsB[j, 1]) -Math.Abs(epsB[j, 2]) + epsA[j];
+                    }
+                    tempM[j] = epsB[j, 2];
                 }
-                glob_strain.SetRow(i, tempE);
+                glob_strain.SetRow(i, tempY);
             }
         }
         
@@ -761,7 +776,7 @@ namespace Beam3D
             });
         }
 
-        private void DisplacementField_ddN(double L, double x, out Vector<double> ddN)
+        private void DisplacementField_ddN(double L, double x, out Matrix<double> ddN)
         {
             double ddN1 = 0;
             double ddN2 = 0;
@@ -770,19 +785,20 @@ namespace Beam3D
             double ddN5 = 6 / Math.Pow(L, 2) - 12 * x / Math.Pow(L, 3);
             double ddN6 = 6 * x / Math.Pow(L, 2) - 2 / L;
 
-            ddN = Vector<double>.Build.DenseOfArray(new double[]
-            {
-                ddN1, ddN3, ddN3, ddN1, ddN4, ddN4, ddN2, ddN5, ddN5, ddN2, ddN6, ddN6
-            });
+            //ddN = Vector<double>.Build.DenseOfArray(new double[]
+            //{
+            //    ddN1, ddN3, ddN3, ddN1, ddN4, ddN4, ddN2, ddN5, ddN5, ddN2, ddN6, ddN6
+            //});
 
             //u = x1, y1, z1, tx1, ty1, tz1, x2, y2, z2, tx2, ty2, tz2
 
 
-            //N = Matrix<double>.Build.DenseOfArray(new double[,] {
-            //    { N1, 0, 0,  0,  0,  0, N2, 0,  0,  0,  0,  0},
-            //    { 0, N3, 0,  0,  0, N4, 0, N5, 0,  0,  0, N6 },
-            //    { 0, 0, N3, 0, -N4,  0, 0, 0, N5, 0, -N6, 0},
-            //    { 0, 0, 0,  N1,  0,  0, 0, 0,  0, N2, 0, 0} });
+            ddN = Matrix<double>.Build.DenseOfArray(new double[,] {
+                { ddN1, 0, 0,  0,  0,  0, ddN2, 0,  0,  0,  0,  0},
+                { 0, ddN3, 0,  0,  0, ddN4, 0, ddN5, 0,  0,  0, ddN6 },
+                { 0, 0, ddN3, 0, -ddN4,  0, 0, 0, ddN5, 0, -ddN6, 0},
+                { 0, 0, 0,  ddN1,  0,  0, 0, 0,  0, ddN2, 0, 0}
+            });
         }
 
         private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, Vector<double> bdc_value)
