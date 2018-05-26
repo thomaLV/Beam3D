@@ -532,13 +532,9 @@ namespace Beam3D
                     DisplacementField_ddN(L, x[j], out ddN);   //http://what-when-how.com/the-finite-element-method/fem-for-beams-finite-element-method-part-1/
                     DisplacementField_dN(L, x[j], out dN);
 
-                    //ddN = -y * ddN;
-
                     epsB.SetRow(j, ddN.Multiply(u));
                     var tempA = dN * u;
                     epsA[j] = tempA[0];
-                    Debug.WriteLine(epsB.Row(j));
-                    Debug.WriteLine(epsA[j]);
                 }
 
 
@@ -547,9 +543,6 @@ namespace Beam3D
                 var tempY = Vector<double>.Build.Dense(n + 1);
                 for (int j = 0; j < n + 1; j++)
                 {
-                    Debug.WriteLine(epsB);
-                    Debug.WriteLine(epsA);
-
                     if (epsA[j] > 0)
                     {
                         tempY[j] = Math.Abs(epsB[j, 1]) + Math.Abs(epsB[j, 2]) + epsA[j];
@@ -559,7 +552,6 @@ namespace Beam3D
                         tempY[j] = -Math.Abs(epsB[j, 1]) - Math.Abs(epsB[j, 2]) + epsA[j];
                     }
                     tempM[j] = epsB[j, 2];
-                    Debug.WriteLine(tempY);
                 }
                 glob_strain.SetRow(i, tempY);
             }
