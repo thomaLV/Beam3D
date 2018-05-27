@@ -522,38 +522,41 @@ namespace Beam3D
                 def_shape.SetRow(i, SetDef(n + 1, disp, rot));
 
 
-                Matrix<double> epsB = Matrix<double>.Build.Dense(n + 1, 4);
-                Vector<double> epsA = Vector<double>.Build.Dense(n + 1);
+                var tempY = Vector<double>.Build.Dense(n + 1);
                 Matrix<double> ddN;
                 var y = 50;
 
                 for (int j = 0; j < n + 1; j++)
                 {
-                    DisplacementField_ddN(L, x[j], out ddN);   //http://what-when-how.com/the-finite-element-method/fem-for-beams-finite-element-method-part-1/
+                    DisplacementField_ddN(L, x[j], out ddN);
                     DisplacementField_dN(L, x[j], out dN);
 
-                    epsB.SetRow(j, ddN.Multiply(u));
-                    var tempA = dN * u;
-                    epsA[j] = tempA[0];
-                }
+                    var tmp1 = dN * u;
+                    var tmp2 = y * ddN * u;
 
+                    //transform back to global coordinates
+                    var d1 = new double[] { tmp1[0], tmp1[1], tmp1[2] };
+                    var r1 = new double[] { tmp1[3], tmp2[2], tmp2[1] };
+                    var t1 = ToGlobal(d1, r1, tf);
 
- 
-                epsB = y * epsB;
-                var tempY = Vector<double>.Build.Dense(n + 1);
-                for (int j = 0; j < n + 1; j++)
-                {
-                    if (epsA[j] > 0)
+                    var epsA = tmp1[0];
+                    var epsB = Vector<double>.Build.DenseOfArray(new double[2] { t1[2], t1[1] });
+                    
+                    if (epsA > 0) //use positive polarity if the axial strains are positive (elongated)
                     {
-                        tempY[j] = Math.Abs(epsB[j, 1]) + Math.Abs(epsB[j, 2]) + epsA[j];
+                        tempY[j] = Math.Abs(epsB[0]) + Math.Abs(epsB[1]) + epsA; //using awha bs since we are looking for eps_x,max
+                    }
+                    else if (epsA < 0 || epsB[1] + epsB[2] < 0)    //negative polarity of axial strains are negative
+                    {
+                        tempY[j] = -(Math.Abs(epsB[1]) + Math.Abs(epsB[2]) + epsA);
                     }
                     else
                     {
-                        tempY[j] = -Math.Abs(epsB[j, 1]) - Math.Abs(epsB[j, 2]) + epsA[j];
+                        tempY[j] = Math.Abs(epsB[1]) + Math.Abs(epsB[2]);
                     }
-                    tempM[j] = epsB[j, 2];
+                    tempM[j] = epsB[2];
                 }
-                glob_strain.SetRow(i, tempY);
+                glob_strain.SetRow(i, tempY); //set strains for all subelement in current element to row i
             }
         }
 
@@ -644,6 +647,7 @@ namespace Beam3D
                 { dN1, 0,    0,  0,  0,     0,  dN2,    0,  0,  0,    0,    0},
                 { 0, dN3,    0,  0,  0,  dN4,   0,  dN5,    0,  0,    0, dN6 },
                 { 0,    0, dN3,  0, dN4,   0,  0,      0,dN5,  0, dN6,    0},
+                //{ 0,    0, dN3,  0, -dN4,   0,  0,      0,dN5,  0, -dN6,    0},
                 { 0,    0,   0, dN1, 0,     0,  0,      0,  0, dN2,  0,     0} });
 
             //theta_y = du_z/dx
@@ -663,6 +667,7 @@ namespace Beam3D
                 { dN1, 0,    0,  0,  0,     0,  dN2,    0,  0,  0,    0,    0},
                 { 0, dN3,    0,  0,  0,  dN4,   0,  dN5,    0,  0,    0, dN6 },
                 { 0,    0, dN3,  0, dN4,   0,  0,      0,dN5,  0, dN6,    0},
+                //{ 0,    0, dN3,  0, -dN4,   0,  0,      0,dN5,  0, -dN6,    0},
                 { 0,    0,   0, dN1, 0,     0,  0,      0,  0, dN2,  0,     0} });
 
             //theta_y = du_z/dx
