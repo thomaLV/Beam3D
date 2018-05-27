@@ -200,7 +200,7 @@ namespace Beam3D
 
                 //Interpolate deformations using shape functions
                 List<Point3d> newXYZ, oldXYZ;
-                InterpolateDeformations(def_tot, points, geometry, n, scale, out def_shape, out defGeometry, out newXYZ, out oldXYZ, out glob_strain, out tempM);
+                InterpolateDeformations(def_tot, points, geometry, n, scale, 50, 50, out def_shape, out defGeometry, out newXYZ, out oldXYZ, out glob_strain, out tempM);
 
                 //CalculateStrains(oldXYZ, newXYZ, n, geometry.Count, 150, def_shape, out glob_strain);
 
@@ -371,7 +371,7 @@ namespace Beam3D
             return def_shape_nested;
         }
 
-        private void InterpolateDeformations(Vector<double> def, List<Point3d> points, List<Line> geometry, int n, int scale, out Matrix<double> def_shape, out List<Curve> defGeometry, out List<Point3d> newXYZ, out List<Point3d> oldXYZ, out Matrix<double> glob_strain, out Vector<double> tempM)
+        private void InterpolateDeformations(Vector<double> def, List<Point3d> points, List<Line> geometry, int n, int scale, double height, double width, out Matrix<double> def_shape, out List<Curve> defGeometry, out List<Point3d> newXYZ, out List<Point3d> oldXYZ, out Matrix<double> glob_strain, out Vector<double> tempM)
         {
             defGeometry = new List<Curve>();
             def_shape = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 6);
@@ -521,13 +521,11 @@ namespace Beam3D
                 //add deformation to def_shape (convert from i = nodal number to i = element number)
                 def_shape.SetRow(i, SetDef(n + 1, disp, rot));
 
-                double y = 50;
-                var elementStrain = CalculateStrain(n, y, y, u, tf, L, x);
-                glob_strain.SetRow(i, elementStrain); //set strains for all subelement in current element to row i
+                glob_strain.SetRow(i, CalculateStrain(n, height, width, u, tf, L, x)); //set strains for all subelement in current element to row i
             }
         }
 
-        private Vector<double> CalculateStrain(int n, double y, double z, Vector<double> u, Matrix<double> tf, double L, Vector<double> x)
+        private Vector<double> CalculateStrain(int n, double height, double width, Vector<double> u, Matrix<double> tf, double L, Vector<double> x)
         {
             Matrix<double> dN, ddN;
             var strains = Vector<double>.Build.Dense(n + 1); //contains all subelement strains (only for one element)
@@ -536,8 +534,9 @@ namespace Beam3D
                 DisplacementField_ddN(L, x[j], out ddN);
                 DisplacementField_dN(L, x[j], out dN);
 
+                //u and N are in local coordinates
                 var tmp1 = dN * u;
-                var tmp2 = y * ddN * u;
+                var tmp2 = ddN * u;
 
                 //transform back to global coordinates
                 var d1 = new double[] { tmp1[0], tmp1[1], tmp1[2] };
@@ -545,19 +544,19 @@ namespace Beam3D
                 var t1 = ToGlobal(d1, r1, tf);
 
                 var epsA = tmp1[0];
-                var epsB = Vector<double>.Build.DenseOfArray(new double[2] { t1[2], t1[1] });
+                var epsB = Vector<double>.Build.DenseOfArray(new double[2] { height * t1[2], width * t1[1] }); //placing and multiplying with height and width
 
                 if (epsA > 0) //use positive polarity if the axial strains are positive (elongated)
                 {
-                    strains[j] = Math.Abs(epsB[0]) + Math.Abs(epsB[1]) + epsA; //using awha bs since we are looking for eps_x,max
+                    strains[j] = Math.Abs(epsB[0]) + Math.Abs(epsB[1]) + epsA; //using absolute values since we are looking for eps_x,max
                 }
-                else if (epsA < 0 || epsB[1] + epsB[2] < 0)    //negative polarity of axial strains are negative
+                else if (epsA < 0 || epsB[0] + epsB[1] < 0)    //negative polarity of axial strains are negative
                 {
-                    strains[j] = -(Math.Abs(epsB[1]) + Math.Abs(epsB[2]) + epsA);
+                    strains[j] = -(Math.Abs(epsB[0]) + Math.Abs(epsB[1]) + epsA);
                 }
                 else
                 {
-                    strains[j] = Math.Abs(epsB[1]) + Math.Abs(epsB[2]);
+                    strains[j] = Math.Abs(epsB[0]) + Math.Abs(epsB[1]);
                 }
                 //tempM[j] = epsB[2];
             }
