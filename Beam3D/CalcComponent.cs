@@ -521,43 +521,47 @@ namespace Beam3D
                 //add deformation to def_shape (convert from i = nodal number to i = element number)
                 def_shape.SetRow(i, SetDef(n + 1, disp, rot));
 
-
-                var tempY = Vector<double>.Build.Dense(n + 1);
-                Matrix<double> ddN;
-                var y = 50;
-
-                for (int j = 0; j < n + 1; j++)
-                {
-                    DisplacementField_ddN(L, x[j], out ddN);
-                    DisplacementField_dN(L, x[j], out dN);
-
-                    var tmp1 = dN * u;
-                    var tmp2 = y * ddN * u;
-
-                    //transform back to global coordinates
-                    var d1 = new double[] { tmp1[0], tmp1[1], tmp1[2] };
-                    var r1 = new double[] { tmp1[3], tmp2[2], tmp2[1] };
-                    var t1 = ToGlobal(d1, r1, tf);
-
-                    var epsA = tmp1[0];
-                    var epsB = Vector<double>.Build.DenseOfArray(new double[2] { t1[2], t1[1] });
-                    
-                    if (epsA > 0) //use positive polarity if the axial strains are positive (elongated)
-                    {
-                        tempY[j] = Math.Abs(epsB[0]) + Math.Abs(epsB[1]) + epsA; //using awha bs since we are looking for eps_x,max
-                    }
-                    else if (epsA < 0 || epsB[1] + epsB[2] < 0)    //negative polarity of axial strains are negative
-                    {
-                        tempY[j] = -(Math.Abs(epsB[1]) + Math.Abs(epsB[2]) + epsA);
-                    }
-                    else
-                    {
-                        tempY[j] = Math.Abs(epsB[1]) + Math.Abs(epsB[2]);
-                    }
-                    tempM[j] = epsB[2];
-                }
-                glob_strain.SetRow(i, tempY); //set strains for all subelement in current element to row i
+                double y = 50;
+                var elementStrain = CalculateStrain(n, y, y, u, tf, L, x);
+                glob_strain.SetRow(i, elementStrain); //set strains for all subelement in current element to row i
             }
+        }
+
+        private Vector<double> CalculateStrain(int n, double y, double z, Vector<double> u, Matrix<double> tf, double L, Vector<double> x)
+        {
+            Matrix<double> dN, ddN;
+            var strains = Vector<double>.Build.Dense(n + 1); //contains all subelement strains (only for one element)
+            for (int j = 0; j < n + 1; j++)
+            {
+                DisplacementField_ddN(L, x[j], out ddN);
+                DisplacementField_dN(L, x[j], out dN);
+
+                var tmp1 = dN * u;
+                var tmp2 = y * ddN * u;
+
+                //transform back to global coordinates
+                var d1 = new double[] { tmp1[0], tmp1[1], tmp1[2] };
+                var r1 = new double[] { tmp1[3], tmp2[2], tmp2[1] };
+                var t1 = ToGlobal(d1, r1, tf);
+
+                var epsA = tmp1[0];
+                var epsB = Vector<double>.Build.DenseOfArray(new double[2] { t1[2], t1[1] });
+
+                if (epsA > 0) //use positive polarity if the axial strains are positive (elongated)
+                {
+                    strains[j] = Math.Abs(epsB[0]) + Math.Abs(epsB[1]) + epsA; //using awha bs since we are looking for eps_x,max
+                }
+                else if (epsA < 0 || epsB[1] + epsB[2] < 0)    //negative polarity of axial strains are negative
+                {
+                    strains[j] = -(Math.Abs(epsB[1]) + Math.Abs(epsB[2]) + epsA);
+                }
+                else
+                {
+                    strains[j] = Math.Abs(epsB[1]) + Math.Abs(epsB[2]);
+                }
+                //tempM[j] = epsB[2];
+            }
+            return strains;
         }
 
         private Vector<double> ToGlobal(double[] d, double[] r, Matrix<double> tf)
