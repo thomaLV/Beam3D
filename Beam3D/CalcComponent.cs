@@ -493,6 +493,18 @@ namespace Beam3D
                 newXYZ.AddRange(tempNew);
                 oldXYZ.AddRange(tempOld);
 
+                var tt = TransformationMatrix(geometry[i].From, geometry[i].To, 0);
+                var u2 = tt * u;
+
+                for (int j = 1; j < n; j++)
+                {
+                    DisplacementField_NB(L, x[j], out N, out B);
+
+                    //multiply by u-vector (nodal deformation values)
+                    rot.SetRow(j, B.Multiply(u2));
+                }
+                rot.SetColumn(2, -rot.Column(2));
+
 
                 //calculate strain for each subelement
                 List<double> tempStrain = new List<double>((n + 1) * 6);
