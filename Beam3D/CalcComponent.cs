@@ -739,13 +739,14 @@ namespace Beam3D
                 //is bdc_value in row i free?
                 if (bdc_value[i] == 1)
                 {
-                    for (int j = 0, jj = 0; j < oldRC; j++)
+                    for (int j = 0, jj = 0; j <= i; j++)
                     {
                         //is bdc_value in col j free?
                         if (bdc_value[j] == 1)
                         {
                             //if yes, then add to new K
                             KGr[i - ii, j - jj] = K[i, j];
+                            KGr[j - jj, i - ii] = K[i, j];
                         }
                         else
                         {
