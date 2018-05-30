@@ -514,7 +514,7 @@ namespace Beam3D
                 def_shape.SetRow(i, SetDef(n + 1, disp, rot));
 
                 Debug.WriteLine("element: " + i);
-                glob_strain.SetRow(i, CalculateStrain(n, height, width, u, tf, L, x, def_shape)); //set strains for all subelement in current element to row i
+                glob_strain.SetRow(i, CalculateStrain(n, height, width, u, tf, L, def_shape)); //set strains for all subelement in current element to row i
             }
         }
 
