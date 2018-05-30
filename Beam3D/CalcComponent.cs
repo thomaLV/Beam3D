@@ -405,14 +405,6 @@ namespace Beam3D
 
                 double L = points[i1].DistanceTo(points[i2]);   //L is distance from startnode to endnode
 
-                #region old method (new increment x method not tested)
-                //var x = Vector<double>.Build.Dense(n + 1);      //x is a vector incremented L / n, and length n
-                //for (int j = 0; j < n + 1; j++)
-                //{
-                //    x[j] = j * L / n;
-                //}
-                #endregion
-
                 //Calculate 6 dofs for all new elements using shape functions (n+1 elements)
                 Matrix<double> disp = Matrix<double>.Build.Dense(n + 1, 4);
                 Matrix<double> rot = Matrix<double>.Build.Dense(n + 1, 4);
@@ -437,8 +429,6 @@ namespace Beam3D
                 for (int j = 0; j < n + 1; j++)
                 {
                     DisplacementField_NB(L, x, out N, out dN);
-
-                    //DisplacementField_NB(L, x[j], out N, out dN);
 
                     disp.SetRow(j, N.Multiply(u));
                     rot.SetRow(j, dN.Multiply(u));
@@ -517,15 +507,12 @@ namespace Beam3D
             {
                 DisplacementField_ddN(L, x, out ddN);
                 DisplacementField_dN(L, x, out dN);
-
-
-
+                
                 //u and N are in local coordinates
                 var tmp1 = dN * u; //tmp1 = du_x, du_y, du_z, dtheta_x
                 var tmp2 = ddN * u; //tmp2 = ddu_x/dx, ddu_y/dx, ddu_z_dx, ddtheta_x/dx
 
-
-
+                
                 //transform back to global coordinates
                 var d1 = new double[] { tmp1[0], tmp1[1], tmp1[2] }; //d1 = du_x, du_y, du_z
                 var r1 = new double[] { tmp1[3], tmp2[2], tmp2[1] }; //r1 = dtheta_x, dtheta_y, dtheta_z
