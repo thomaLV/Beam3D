@@ -199,10 +199,10 @@ namespace Beam3D
                 reactions = K_tot.Multiply(def_tot);
 
                 //Interpolate deformations using shape functions
-                List<Point3d> newXYZ, oldXYZ;
+                List<Point3d> oldXYZ;
                 double y = 50;
                 var z = y;
-                InterpolateDeformations(def_tot, points, geometry, n, scale, z, y, out def_shape, out defGeometry, out newXYZ, out oldXYZ, out glob_strain, out tempM);
+                InterpolateDeformations(def_tot, points, geometry, n, scale, z, y, out def_shape, out defGeometry, out oldXYZ, out glob_strain, out tempM);
 
                 //CalculateStrains(oldXYZ, newXYZ, n, geometry.Count, 150, def_shape, out glob_strain);
 
@@ -373,7 +373,7 @@ namespace Beam3D
             return def_shape_nested;
         }
 
-        private void InterpolateDeformations(Vector<double> def, List<Point3d> points, List<Line> geometry, int n, int scale, double height, double width, out Matrix<double> def_shape, out List<Curve> defGeometry, out List<Point3d> newXYZ, out List<Point3d> oldXYZ, out Matrix<double> glob_strain, out Vector<double> tempM)
+        private void InterpolateDeformations(Vector<double> def, List<Point3d> points, List<Line> geometry, int n, int scale, double height, double width, out Matrix<double> def_shape, out List<Curve> defGeometry, out List<Point3d> oldXYZ, out Matrix<double> glob_strain, out Vector<double> tempM)
         {
             defGeometry = new List<Curve>();
             def_shape = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 6);
@@ -381,7 +381,7 @@ namespace Beam3D
             Matrix<double> N, dN;
             Vector<double> u = Vector<double>.Build.Dense(12);
             Vector<double> v = Vector<double>.Build.Dense(12);
-            newXYZ = new List<Point3d>();
+            var newXYZ = new List<Point3d>();
             oldXYZ = new List<Point3d>();
 
             tempM = Vector<double>.Build.Dense(n + 1);
@@ -402,22 +402,23 @@ namespace Beam3D
                 //interpolate points between startNode and endNode of undeformed (main) element
                 List<Point3d> tempNew = InterpolatePoints(geometry[i], n);
                 List<Point3d> tempOld = new List<Point3d>(tempNew);
-                List<Point3d> tempNew_unscaled = new List<Point3d>(tempNew);
 
                 double L = points[i1].DistanceTo(points[i2]);   //L is distance from startnode to endnode
+
+                #region old method (new increment x method not tested)
                 //var x = Vector<double>.Build.Dense(n + 1);      //x is a vector incremented L / n, and length n
                 //for (int j = 0; j < n + 1; j++)
                 //{
                 //    x[j] = j * L / n;
                 //}
+                #endregion
 
                 //Calculate 6 dofs for all new elements using shape functions (n+1 elements)
                 Matrix<double> disp = Matrix<double>.Build.Dense(n + 1, 4);
                 Matrix<double> rot = Matrix<double>.Build.Dense(n + 1, 4);
 
                 //to show scaled deformations
-                Matrix<double> scaled_disp = Matrix<double>.Build.Dense(n + 1, 4);
-                Matrix<double> scaled_rot = Matrix<double>.Build.Dense(n + 1, 4);
+                Matrix<double> scaled_disp = Matrix<double>.Build.Dense(n + 1, 3);
                 
                 var tf = TransformationMatrix(geometry[i].From, geometry[i].To, 0);
                 var T = tf.DiagonalStack(tf);
@@ -428,6 +429,8 @@ namespace Beam3D
                 if (scale != 1)
                 {
                     v = scale * u;
+                    Debug.WriteLine(u);
+                    Debug.WriteLine(v);
                 }
 
                 double x = 0;
@@ -443,22 +446,22 @@ namespace Beam3D
                     var d0 = new double[] { disp[j, 0], disp[j, 1], disp[j, 2] };
                     var r0 = new double[] { disp[j, 3], rot[j, 2], rot[j, 1] };
                     var t0 = ToGlobal(d0, r0, tf);
-
+                    Debug.WriteLine(t0);
                     disp.SetRow(j, new double[] { t0[0], t0[1], t0[2], t0[3] });
                     rot.SetRow(j, new double[] { rot[j, 0], t0[5], t0[4], rot[j, 3] });
                     
                     if (scale != 1)
                     {
-                        scaled_disp.SetRow(j, N.Multiply(v));
-                        scaled_rot.SetRow(j, dN.Multiply(v));
+                        var tempDisp = N.Multiply(v);
 
-                        d0 = new double[] { scaled_disp[j, 0], scaled_disp[j, 1], scaled_disp[j, 2] };
-                        r0 = new double[] { scaled_disp[j, 3], scaled_rot[j, 2], scaled_rot[j, 1] };
-                        t0 = ToGlobal(d0, r0, tf);
+                        var d1 = Vector.Build.DenseOfArray(new double[] { tempDisp[0], tempDisp[1], tempDisp[2] });
+                        t0 = tf.Transpose() * d1;
 
-                        scaled_disp.SetRow(j, new double[] { t0[0], t0[1], t0[2], t0[3] });
+                        scaled_disp.SetRow(j, new double[] { t0[0], t0[1], t0[2] });
+                        Debug.WriteLine(t0);
+
                     }
-                    x += n / L;
+                    x += L / n;
                 }
 
                 //Calculate new nodal points
@@ -467,31 +470,20 @@ namespace Beam3D
                     if (scale != 1)
                     {
                         //original xyz                        
-                        var tP = tempNew[j];
-
+                        var tP = tempOld[j];
+                        Debug.WriteLine(tP);
                         //add deformations
                         tP.X = tP.X + scaled_disp[j, 0];
                         tP.Y = tP.Y + scaled_disp[j, 1];
                         tP.Z = tP.Z + scaled_disp[j, 2];
-
+                        
                         //replace previous xyz with displaced xyz
                         tempNew[j] = tP;
-
-                        //original xyz                        
-                        tP = tempNew[j];
-
-                        //add deformations
-                        tP.X = tP.X + disp[j, 0];
-                        tP.Y = tP.Y + disp[j, 1];
-                        tP.Z = tP.Z + disp[j, 2];
-
-                        //replace previous xyz with displaced xyz
-                        tempNew_unscaled[j] = tP;
                     }
                     else
                     {
                         //original xyz                        
-                        var tP = tempNew[j];
+                        var tP = tempOld[j];
 
                         //add deformations
                         tP.X = tP.X + disp[j, 0];
@@ -500,14 +492,12 @@ namespace Beam3D
 
                         //replace previous xyz with displaced xyz
                         tempNew[j] = tP;
-                        tempNew_unscaled[j] = tP;
                     }
                 }
 
                 //Create Curve based on new nodal points (degree = 3)
                 Curve nc = Curve.CreateInterpolatedCurve(tempNew, 3);
                 defGeometry.Add(nc);
-                newXYZ.AddRange(tempNew_unscaled);
                 oldXYZ.AddRange(tempOld);
 
                 //add deformation to def_shape (convert from i = nodal number to i = element number)
@@ -548,14 +538,14 @@ namespace Beam3D
                 strains[j + 1] = epsB[0];
                 strains[j + 2] = epsB[1];
 
-                Debug.WriteLine("def" + Environment.NewLine + def.Row(j));
-                Debug.WriteLine("tmp1" + Environment.NewLine + tmp1);
-                Debug.WriteLine("tmp2" + Environment.NewLine + tmp2);
-                Debug.WriteLine("d1" + Environment.NewLine + d1[0] + "," + d1[1] + "," + d1[2]);
-                Debug.WriteLine("r1" + Environment.NewLine + r1[0] + "," + r1[1] + "," + r1[2]);
-                Debug.WriteLine("t1" + Environment.NewLine + t1.ToString());
-                Debug.WriteLine("strains" + Environment.NewLine + strains);
-                Debug.WriteLine("node: " + j);
+                //Debug.WriteLine("def" + Environment.NewLine + def.Row(j));
+                //Debug.WriteLine("tmp1" + Environment.NewLine + tmp1);
+                //Debug.WriteLine("tmp2" + Environment.NewLine + tmp2);
+                //Debug.WriteLine("d1" + Environment.NewLine + d1[0] + "," + d1[1] + "," + d1[2]);
+                //Debug.WriteLine("r1" + Environment.NewLine + r1[0] + "," + r1[1] + "," + r1[2]);
+                //Debug.WriteLine("t1" + Environment.NewLine + t1.ToString());
+                //Debug.WriteLine("strains" + Environment.NewLine + strains);
+                //Debug.WriteLine("node: " + j);
 
                 //if (epsA > 0) //use positive polarity if the axial strains are positive (elongated)
                 //{
@@ -570,7 +560,7 @@ namespace Beam3D
                 //    strains[j] = Math.Abs(epsB[0]) + Math.Abs(epsB[1]);
                 //}
                 ////tempM[j] = epsB[2];
-                x += n / L;
+                x += L / n;
             }
             return strains;
         }
