@@ -405,11 +405,11 @@ namespace Beam3D
                 List<Point3d> tempNew_unscaled = new List<Point3d>(tempNew);
 
                 double L = points[i1].DistanceTo(points[i2]);   //L is distance from startnode to endnode
-                var x = Vector<double>.Build.Dense(n + 1);      //x is a vector incremented L / n, and length n
-                for (int j = 0; j < n + 1; j++)
-                {
-                    x[j] = j * L / n;
-                }
+                //var x = Vector<double>.Build.Dense(n + 1);      //x is a vector incremented L / n, and length n
+                //for (int j = 0; j < n + 1; j++)
+                //{
+                //    x[j] = j * L / n;
+                //}
 
                 //Calculate 6 dofs for all new elements using shape functions (n+1 elements)
                 Matrix<double> disp = Matrix<double>.Build.Dense(n + 1, 4);
@@ -428,25 +428,14 @@ namespace Beam3D
                 if (scale != 1)
                 {
                     v = scale * u;
-
-                    ////set correct deformations to start and end-node (to save computation time of shapefunctions)
-                    //scaled_disp.SetRow(0, new double[] { v[0], v[1], v[2], v[3] });
-                    //scaled_disp.SetRow(n, new double[] { v[6], v[7], v[8], v[9] });
                 }
 
-                //set correct deformations to start and end-node (to save computation time of shapefunctions)
-                ////disp.SetRow(0, new double[] { u[0], u[1], u[2], u[3] });
-                ////disp.SetRow(n, new double[] { u[6], u[7], u[8], u[9] });
-
-                //DisplacementField_dN(L, 0, out dN);
-                //rot.SetRow(0, dN.Multiply(u));
-
-                //DisplacementField_dN(L, L, out dN);
-                //rot.SetRow(n, dN.Multiply(u));
-
+                double x = 0;
                 for (int j = 0; j < n + 1; j++)
                 {
-                    DisplacementField_NB(L, x[j], out N, out dN);
+                    DisplacementField_NB(L, x, out N, out dN);
+
+                    //DisplacementField_NB(L, x[j], out N, out dN);
 
                     disp.SetRow(j, N.Multiply(u));
                     rot.SetRow(j, dN.Multiply(u));
@@ -469,6 +458,7 @@ namespace Beam3D
 
                         scaled_disp.SetRow(j, new double[] { t0[0], t0[1], t0[2], t0[3] });
                     }
+                    x += n / L;
                 }
 
                 //Calculate new nodal points
@@ -528,20 +518,22 @@ namespace Beam3D
             }
         }
 
-        private Vector<double> CalculateStrain(int n, double height, double width, Vector<double> u, Matrix<double> tf, double L, Vector<double> x, Matrix<double> def)
+        private Vector<double> CalculateStrain(int n, double height, double width, Vector<double> u, Matrix<double> tf, double L, Matrix<double> def)
         {
             Matrix<double> dN, ddN;
+            double x = n / L;
             var strains = Vector<double>.Build.Dense((n + 1) * 3); //contains all subelement strains (only for one element)
             for (int j = 0; j < n + 1; j++)
             {
-                DisplacementField_ddN(L, x[j], out ddN);
-                DisplacementField_dN(L, x[j], out dN);
+                DisplacementField_ddN(L, x, out ddN);
+                DisplacementField_dN(L, x, out dN);
 
 
 
                 //u and N are in local coordinates
                 var tmp1 = dN * u; //tmp1 = du_x, du_y, du_z, dtheta_x
                 var tmp2 = ddN * u; //tmp2 = ddu_x/dx, ddu_y/dx, ddu_z_dx, ddtheta_x/dx
+
 
 
                 //transform back to global coordinates
@@ -578,6 +570,7 @@ namespace Beam3D
                 //    strains[j] = Math.Abs(epsB[0]) + Math.Abs(epsB[1]);
                 //}
                 ////tempM[j] = epsB[2];
+                x += n / L;
             }
             return strains;
         }
