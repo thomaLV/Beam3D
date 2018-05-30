@@ -131,9 +131,9 @@ namespace Beam3D
                 Matrix<double> K_tot = GlobalStiffnessMatrix(geometry, points, E, A, Iy, Iz, J, G);
 
                 //Create reduced K-matrix and reduced load list (removed free dofs)
-                Matrix<double> K_red;
+                Matrix<double> KGr;
                 Vector<double> load_red;
-                ReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
+                ReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out KGr, out load_red);
                 #endregion
 
                 #region Solver Performance Test
@@ -166,7 +166,7 @@ namespace Beam3D
                     }
 
                     int decimals = 2;
-                    CheckSolvers(K_red, load_red, decimals, out output_time);
+                    CheckSolvers(KGr, load_red, decimals, out output_time);
 
                     performanceResult += output_time;
 
@@ -190,7 +190,7 @@ namespace Beam3D
 
                 #region Calculate deformations, reaction forces and internal strains and stresses
                 //Calculate deformations
-                Vector<double> def_red = K_red.Cholesky().Solve(load_red);
+                Vector<double> def_red = KGr.Cholesky().Solve(load_red);
 
                 //Add the clamped dofs (= 0) to the deformations list
                 Vector<double> def_tot = RestoreTotalDeformationVector(def_red, bdc_value);
