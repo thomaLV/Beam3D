@@ -1196,15 +1196,8 @@ namespace Beam3D
             Iy = (Math.Round(double.Parse(matProp[2]), 2));
             Iz = (Math.Round(double.Parse(matProp[3]), 2));
             G = (Math.Round(double.Parse(matProp[4]), 2));
-
-            try //if no v is provided, assume v = 0.3;
-            {
-                v = (Math.Round(double.Parse(matProp[5]), 2));
-            }
-            catch (Exception)
-            {
-                v = 0.3;
-            }
+            v = (Math.Round(double.Parse(matProp[5]), 2));
+            
             J = Iy + Iz;
         }
 
