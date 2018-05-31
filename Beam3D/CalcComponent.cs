@@ -111,16 +111,10 @@ namespace Beam3D
             Vector<double> load = CreateLoadList(loadtxt, momenttxt, points);
             #endregion
 
-            Matrix<double> def_shape;
-            Matrix<double> glob_strain;
-            Matrix<double> glob_stress;
-
+            Matrix<double> def_shape, glob_strain, glob_stress;
             Vector<double> reactions;
-            List<double> internalStresses;
-            List<double> internalStrains;
             List<Point3d> oldXYZ;
-
-            Vector<double> tempM;
+            
             List<Curve> defGeometry = new List<Curve>();    //output deformed geometry
 
 
@@ -206,13 +200,14 @@ namespace Beam3D
 
                 Debug.WriteLine(reactions);
                 var z = y;
-                InterpolateDeformations(def_tot, points, geometry, n, z, y, out def_shape, out defGeometry, out oldXYZ, out glob_strain, out tempM);
+                InterpolateDeformations(def_tot, points, geometry, n, z, y, out def_shape, out oldXYZ, out glob_strain);
+
+                glob_stress = E * glob_strain;
 
                 //CalculateStrains(oldXYZ, newXYZ, n, geometry.Count, 150, def_shape, out glob_strain);
 
                 ////Calculate the internal strains and stresses in each member
                 //CalculateInternalStresses(glob_strain, E, G, v, out glob_stress);
-                glob_stress = E * glob_strain;
 
                 ////Calculate the internal strains and stresses in each member
                 //CalculateMisesStresses(glob_stress, out mises_stress);
@@ -226,11 +221,7 @@ namespace Beam3D
                 def_shape = Matrix<double>.Build.Dense(geometry.Count, 6 * (n + 1));
                 glob_strain = def_shape;
                 glob_stress = def_shape;
-                tempM = reactions;
 
-                internalStresses = new List<double>(geometry.Count);
-                internalStresses.AddRange(new double[geometry.Count]);
-                internalStrains = internalStresses;
                 oldXYZ = new List<Point3d>();
                 #endregion
             }
@@ -240,7 +231,6 @@ namespace Beam3D
             Grasshopper.DataTree<double> def_shape_nested = ConvertToNestedList(def_shape);
             Grasshopper.DataTree<double> strain_nested = ConvertToNestedList(glob_strain);
             Grasshopper.DataTree<double> stresses_nested = ConvertToNestedList(glob_stress);
-            tempM = tempM * E * Iz;
 
             double[,] def_m = new double[def_shape.RowCount, def_shape.ColumnCount];
             for (int i = 0; i < def_shape.RowCount; i++)
@@ -386,19 +376,13 @@ namespace Beam3D
             return def_shape_nested;
         }
 
-        private void InterpolateDeformations(Vector<double> def, List<Point3d> points, List<Line> geometry, int n, double height, double width, out Matrix<double> def_shape, out List<Curve> defGeometry, out List<Point3d> oldXYZ, out Matrix<double> glob_strain, out Vector<double> tempM)
+        private void InterpolateDeformations(Vector<double> def, List<Point3d> points, List<Line> geometry, int n, double height, double width, out Matrix<double> def_shape, out List<Point3d> oldXYZ, out Matrix<double> glob_strain)
         {
-            defGeometry = new List<Curve>();
             def_shape = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 6);
             glob_strain = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 3);
             Matrix<double> N, dN;
             Vector<double> u = Vector<double>.Build.Dense(12);
-            Vector<double> v = Vector<double>.Build.Dense(12);
-            var newXYZ = new List<Point3d>();
             oldXYZ = new List<Point3d>();
-
-            tempM = Vector<double>.Build.Dense(n + 1);
-
             for (int i = 0; i < geometry.Count; i++)
             {
 
@@ -413,8 +397,7 @@ namespace Beam3D
                 }
 
                 //interpolate points between startNode and endNode of undeformed (main) element
-                List<Point3d> tempNew = InterpolatePoints(geometry[i], n);
-                List<Point3d> tempOld = new List<Point3d>(tempNew);
+                List<Point3d> tempOld = InterpolatePoints(geometry[i], n);
 
                 double L = points[i1].DistanceTo(points[i2]);   //L is distance from startnode to endnode
 
