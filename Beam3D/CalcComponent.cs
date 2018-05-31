@@ -24,7 +24,7 @@ namespace Beam3D
         }
 
         //Initialize moments
-        static bool startCalc = true;
+        static bool startCalc = false;
         static bool startTest = false;
 
         //Method to allow c hanging of variables via GUI (see Component Visual)
@@ -60,6 +60,7 @@ namespace Beam3D
         {
             pManager.AddGenericParameter("Deformations", "Def", "Tree of Deformations", GH_ParamAccess.tree);
             pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Applied Loads", "A", "Applied Loads", GH_ParamAccess.list);
             pManager.AddGenericParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.tree);
             pManager.AddGenericParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.tree);
             pManager.AddGenericParameter("Matrix Deformations", "DM", "Deformation Matrix for def. component", GH_ParamAccess.item);
@@ -107,7 +108,7 @@ namespace Beam3D
 
 
             //Interpreting input load (text) and creating load list (do uble)
-            List<double> load = CreateLoadList(loadtxt, momenttxt, points);
+            Vector<double> load = CreateLoadList(loadtxt, momenttxt, points);
             #endregion
 
             Matrix<double> def_shape;
@@ -194,11 +195,16 @@ namespace Beam3D
                 //Add the clamped dofs (= 0) to the deformations list
                 Vector<double> def_tot = RestoreTotalDeformationVector(def_red, bdc_value);
 
+                
                 //Calculate the reaction forces from the deformations
                 reactions = K_tot.Multiply(def_tot);
+                reactions -= load;
+                reactions.CoerceZero(1e-10);
 
                 //Interpolate deformations using shape functions
                 double y = 50;
+
+                Debug.WriteLine(reactions);
                 var z = y;
                 InterpolateDeformations(def_tot, points, geometry, n, z, y, out def_shape, out defGeometry, out oldXYZ, out glob_strain, out tempM);
 
@@ -247,10 +253,11 @@ namespace Beam3D
 
             DA.SetDataTree(0, def_shape_nested);
             DA.SetDataList(1, reactions);
-            DA.SetDataTree(2, stresses_nested);
-            DA.SetDataTree(3, strain_nested);
-            DA.SetData(4, def_shape);
-            DA.SetDataList(5, oldXYZ);
+            DA.SetDataList(2, load);
+            DA.SetDataTree(3, stresses_nested);
+            DA.SetDataTree(4, strain_nested);
+            DA.SetData(5, def_shape);
+            DA.SetDataList(6, oldXYZ);
 
         } //End of main component
 
@@ -650,7 +657,7 @@ namespace Beam3D
             return def;
         }
 
-        private void ReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> KGr, out Vector<double> load_red)
+        private void ReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, Vector<double> load, out Matrix<double> KGr, out Vector<double> load_red)
         {
             int oldRC = load.Count;
             int newRC = Convert.ToInt16(bdc_value.Sum());
@@ -1010,9 +1017,9 @@ namespace Beam3D
             return KG;
         }
 
-        private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> points)
+        private Vector<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> points)
         {
-            List<double> loads = new List<double>(new double[points.Count * 6]);
+            Vector<double> loads = Vector<double>.Build.Dense(points.Count * 6);
             List<double> inputLoads = new List<double>();
             List<Point3d> coordlist = new List<Point3d>();
 
@@ -1189,7 +1196,7 @@ namespace Beam3D
 
             }
 
-            GH_Palette xColor = GH_Palette.Black;
+            GH_Palette xColor = GH_Palette.Grey;
             GH_Palette yColor = GH_Palette.Grey;
             GH_Palette zColor = GH_Palette.Grey;
 
