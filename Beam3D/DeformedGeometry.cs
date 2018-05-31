@@ -28,12 +28,10 @@ namespace Beam3D
         //Method to allow C# hanging of variables via GUI (see Component Visual)
         public static void setToggles(string s, bool i)
         {
-            if (s == "Run")
+            if (s == "Color")
             {
                 startDef = i;
             }
-            Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
-            Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
         }
 
         public override void CreateAttributes()
@@ -57,110 +55,45 @@ namespace Beam3D
         {
             List<Curve> defC = new List<Curve>();
 
-            if (startDef)
+            //Expected inputs and outputs
+            Matrix<double> def = Matrix<double>.Build.Dense(1, 1);
+            List<Point3d> oldXYZ = new List<Point3d>();
+            double scale = 1000;                            //input deformation scale
+
+
+            //Set expected inputs from Indata
+            if (!DA.GetData(0, ref def)) return;
+            if (!DA.GetDataList(1, oldXYZ)) return;
+            if (!DA.GetData(2, ref scale)) return;
+
+
+            //scale deformations
+            def = scale * def;
+
+
+            //Calculate new nodal points
+            for (int i = 0; i < def.RowCount; i++)
             {
-                #region Fetch input
-                //Expected inputs and outputs
-                Matrix<double> def = Matrix<double>.Build.Dense(1, 1);
-                List<Point3d> oldXYZ = new List<Point3d>();
-                double scale = 1000;                            //input deformation scale
-
-
-                //Set expected inputs from Indata
-                if (!DA.GetData(0, ref def)) return;
-                if (!DA.GetDataList(1, oldXYZ)) return;
-                if (!DA.GetData(2, ref scale)) return;
-                #endregion
-
-
-                //Calculate new nodal points
-                for (int i = 0; i < def.RowCount; i++)
+                List<Point3d> tempNew = new List<Point3d>();
+                for (int j = 0; j < def.ColumnCount / 6; j++)
                 {
-                    List<Point3d> tempNew = new List<Point3d>();
-                    for (int j = 0; j < def.ColumnCount/6; j++)
-                    {
+                    //original xyz
+                    var tP = oldXYZ[i + j];
 
-                        //   Vector < double > def_element= Vector<double>.Build.DenseOfArray(def.Branches[0].Value);
-                        if (scale != 1)
-                        {
-                            //original xyz
-                            var tP = oldXYZ[i + j];
+                    //add deformations
+                    tP.X = tP.X + def[i, j * 6];
+                    tP.Y = tP.Y + def[i, j * 6 + 1];
+                    tP.Z = tP.Z + def[i, j * 6 + 2];
 
-                            //add deformations
-                            tP.X = tP.X + scale * def[i, j*6];
-                            tP.Y = tP.Y + scale * def[i, j*6 + 1];
-                            tP.Z = tP.Z + scale * def[i, j*6 + 2];
-
-                            //replace previous xyz with displaced xyz
-                            tempNew.Add(tP);
-                        }
-                        else
-                        {
-                            //original xyz
-                            var tP = oldXYZ[i + j];
-
-                            //add deformations
-                            tP.X = tP.X + def[i, j*6];
-                            tP.Y = tP.Y + def[i, j*6 + 1];
-                            tP.Z = tP.Z + def[i, j*6 + 2];
-
-                            //replace previous xyz with displaced xyz
-                            tempNew.Add(tP);
-                        }
-                    }
-                    //Create Curve based on new nodal points(degree = 3)
-                    Curve nc = Curve.CreateInterpolatedCurve(tempNew, 3);
-                    defC.Add(nc);
+                    //replace previous xyz with displaced xyz
+                    tempNew.Add(tP);
                 }
-
+                //Create Curve based on new nodal points(degree = 3)
+                Curve nc = Curve.CreateInterpolatedCurve(tempNew, 3);
+                defC.Add(nc);
             }
             DA.SetDataList(0, defC);
         }//End of main program
-
-        private List<Point3d> InterpolatePoints(Line line, int n)
-        {
-            List<Point3d> tempP = new List<Point3d>(n + 1);
-            double[] t = LinSpace(0, 1, n + 1);
-            for (int i = 0; i < t.Length; i++)
-            {
-                var tPm = new Point3d();
-                tPm.Interpolate(line.From, line.To, t[i]);
-                tempP.Add(tPm);
-            }
-            return tempP;
-        }
-
-        private static double[] LinSpace(double x1, double x2, int n)
-        {
-            //Generate a 1-D array of linearly spaced values
-            double step = (x2 - x1) / (n - 1);
-            double[] y = new double[n];
-            for (int i = 0; i < n; i++)
-            {
-                y[i] = x1 + step * i;
-            }
-            return y;
-        }
-
-        private List<Point3d> CreatePointList(List<Line> geometry)
-        {
-            List<Point3d> points = new List<Point3d>();
-
-            for (int i = 0; i < geometry.Count; i++) //adds every point unless it already exists in list
-            {
-                Line l1 = geometry[i];
-                if (!points.Contains(l1.From))
-                {
-                    points.Add(l1.From);
-                }
-                if (!points.Contains(l1.To))
-                {
-                    points.Add(l1.To);
-                }
-            }
-
-            return points;
-        }
 
         protected override System.Drawing.Bitmap Icon
         {
@@ -193,16 +126,16 @@ namespace Beam3D
                 rec1.Height = 22;
                 rec1.Inflate(-2, -2);
 
-                Rectangle rec2 = rec1;
-                rec2.X = rec1.Right + 2;
+                //Rectangle rec2 = rec1;
+                //rec2.X = rec1.Right + 2;
 
-                Rectangle rec3 = rec2;
-                rec3.X = rec2.Right + 2;
+                //Rectangle rec3 = rec2;
+                //rec3.X = rec2.Right + 2;
 
                 Bounds = rec0;
                 ButtonBounds = rec1;
-                ButtonBounds2 = rec2;
-                ButtonBounds3 = rec3;
+                //ButtonBounds2 = rec2;
+                //ButtonBounds3 = rec3;
 
             }
 
@@ -219,22 +152,22 @@ namespace Beam3D
                 base.Render(canvas, graphics, channel);
                 if (channel == GH_CanvasChannel.Objects)
                 {
-                    GH_Capsule button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, xColor, "Run", 3, 0);
+                    GH_Capsule button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, xColor, "Color", 3, 0);
                     button.Render(graphics, Selected, false, false);
                     button.Dispose();
                 }
-                if (channel == GH_CanvasChannel.Objects)
-                {
-                    GH_Capsule button2 = GH_Capsule.CreateTextCapsule(ButtonBounds2, ButtonBounds2, yColor, "2nd", 2, 0);
-                    button2.Render(graphics, Selected, Owner.Locked, false);
-                    button2.Dispose();
-                }
-                if (channel == GH_CanvasChannel.Objects)
-                {
-                    GH_Capsule button3 = GH_Capsule.CreateTextCapsule(ButtonBounds3, ButtonBounds3, zColor, "3rd", 2, 0);
-                    button3.Render(graphics, Selected, Owner.Locked, false);
-                    button3.Dispose();
-                }
+                //if (channel == GH_CanvasChannel.Objects)
+                //{
+                //    GH_Capsule button2 = GH_Capsule.CreateTextCapsule(ButtonBounds2, ButtonBounds2, yColor, "2nd", 2, 0);
+                //    button2.Render(graphics, Selected, Owner.Locked, false);
+                //    button2.Dispose();
+                //}
+                //if (channel == GH_CanvasChannel.Objects)
+                //{
+                //    GH_Capsule button3 = GH_Capsule.CreateTextCapsule(ButtonBounds3, ButtonBounds3, zColor, "3rd", 2, 0);
+                //    button3.Render(graphics, Selected, Owner.Locked, false);
+                //    button3.Dispose();
+                //}
             }
 
             public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
@@ -244,53 +177,53 @@ namespace Beam3D
                     RectangleF rec = ButtonBounds;
                     if (rec.Contains(e.CanvasLocation))
                     {
-                        switchColor("Run");
-                        if (xColor == GH_Palette.Black) { DeformedGeometry.setToggles("Run", true); }
-                        if (xColor == GH_Palette.Grey) { DeformedGeometry.setToggles("Run", false); }
+                        switchColor("Color");
+                        if (xColor == GH_Palette.Black) { DeformedGeometry.setToggles("Color", true); Owner.ExpireSolution(true); }
+                        if (xColor == GH_Palette.Grey) { DeformedGeometry.setToggles("Color", false); }
                         sender.Refresh();
                         return GH_ObjectResponse.Handled;
                     }
-                    rec = ButtonBounds2;
-                    if (rec.Contains(e.CanvasLocation))
-                    {
-                        if (yColor == GH_Palette.Black) { DeformedGeometry.setToggles("2nd", false); DeformedGeometry.setToggles("3rd", true); }
-                        if (yColor == GH_Palette.Grey) { DeformedGeometry.setToggles("2nd", true); DeformedGeometry.setToggles("3rd", false); }
-                        switchColor("2nd");
-                        switchColor("3rd");
-                        sender.Refresh();
-                        return GH_ObjectResponse.Handled;
-                    }
-                    rec = ButtonBounds3;
-                    if (rec.Contains(e.CanvasLocation))
-                    {
-                        if (zColor == GH_Palette.Black) { DeformedGeometry.setToggles("3rd", false); DeformedGeometry.setToggles("2nd", false); }
-                        if (zColor == GH_Palette.Grey) { DeformedGeometry.setToggles("3rd", true); DeformedGeometry.setToggles("2nd", true); }
-                        switchColor("3rd");
-                        switchColor("2nd");
-                        sender.Refresh();
-                        return GH_ObjectResponse.Handled;
-                    }
+                    //rec = ButtonBounds2;
+                    //if (rec.Contains(e.CanvasLocation))
+                    //{
+                    //    if (yColor == GH_Palette.Black) { DeformedGeometry.setToggles("2nd", false); DeformedGeometry.setToggles("3rd", true); }
+                    //    if (yColor == GH_Palette.Grey) { DeformedGeometry.setToggles("2nd", true); DeformedGeometry.setToggles("3rd", false); }
+                    //    switchColor("2nd");
+                    //    switchColor("3rd");
+                    //    sender.Refresh();
+                    //    return GH_ObjectResponse.Handled;
+                    //}
+                    //rec = ButtonBounds3;
+                    //if (rec.Contains(e.CanvasLocation))
+                    //{
+                    //    if (zColor == GH_Palette.Black) { DeformedGeometry.setToggles("3rd", false); DeformedGeometry.setToggles("2nd", false); }
+                    //    if (zColor == GH_Palette.Grey) { DeformedGeometry.setToggles("3rd", true); DeformedGeometry.setToggles("2nd", true); }
+                    //    switchColor("3rd");
+                    //    switchColor("2nd");
+                    //    sender.Refresh();
+                    //    return GH_ObjectResponse.Handled;
+                    //}
                 }
                 return base.RespondToMouseDown(sender, e);
             }
 
             private void switchColor(string button)
             {
-                if (button == "Run")
+                if (button == "Color")
                 {
                     if (xColor == GH_Palette.Black) { xColor = GH_Palette.Grey; }
                     else { xColor = GH_Palette.Black; }
                 }
-                else if (button == "2nd")
-                {
-                    if (yColor == GH_Palette.Black) { yColor = GH_Palette.Grey; }
-                    else { yColor = GH_Palette.Black; }
-                }
-                else if (button == "3rd")
-                {
-                    if (zColor == GH_Palette.Black) { zColor = GH_Palette.Grey; }
-                    else { zColor = GH_Palette.Black; }
-                }
+                //else if (button == "2nd")
+                //{
+                //    if (yColor == GH_Palette.Black) { yColor = GH_Palette.Grey; }
+                //    else { yColor = GH_Palette.Black; }
+                //}
+                //else if (button == "3rd")
+                //{
+                //    if (zColor == GH_Palette.Black) { zColor = GH_Palette.Grey; }
+                //    else { zColor = GH_Palette.Black; }
+                //}
             }
         }
     }

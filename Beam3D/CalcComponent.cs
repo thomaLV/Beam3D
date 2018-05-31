@@ -24,7 +24,7 @@ namespace Beam3D
         }
 
         //Initialize moments
-        static bool startCalc = false;
+        static bool startCalc = true;
         static bool startTest = false;
 
         //Method to allow c hanging of variables via GUI (see Component Visual)
@@ -58,14 +58,12 @@ namespace Beam3D
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Shape Def", "Def", "Deformations", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Deformations", "Def", "Tree of Deformations", GH_ParamAccess.tree);
             pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
             pManager.AddGenericParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.tree);
             pManager.AddGenericParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.tree);
-            pManager.AddGenericParameter("Moment", "Strn", "The Mises Strain in each element", GH_ParamAccess.list);
-            //pManager.AddCurveParameter("NurbsCurves", "Crv", "Deformed Geometry", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Matrix Deformations", "DM", "Deformation Matrix for def. component", GH_ParamAccess.item);
             pManager.AddPointParameter("New Base Points", "NBP", "Nodal points of sub elements", GH_ParamAccess.list);
-            pManager.AddGenericParameter("def_shape", "ds", "Deformation points of sub elements", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -78,7 +76,6 @@ namespace Beam3D
             List<string> momenttxt = new List<string>();    //Moments in string format
             string mattxt = "";
             int n = 1;
-            int scale = 1;
 
 
             //Set expected inputs from Indata
@@ -88,7 +85,6 @@ namespace Beam3D
             if (!DA.GetDataList(3, loadtxt)) return;        //sets load as string
             if (!DA.GetDataList(4, momenttxt)) return;      //sets moment as string
             if (!DA.GetData(5, ref n)) return;              //sets number of elements
-            if (!DA.GetData(6, ref scale)) return;              //sets number of elements
             #endregion
 
             //Interpret and set material parameters
@@ -204,7 +200,7 @@ namespace Beam3D
                 //Interpolate deformations using shape functions
                 double y = 50;
                 var z = y;
-                InterpolateDeformations(def_tot, points, geometry, n, scale, z, y, out def_shape, out defGeometry, out oldXYZ, out glob_strain, out tempM);
+                InterpolateDeformations(def_tot, points, geometry, n, z, y, out def_shape, out defGeometry, out oldXYZ, out glob_strain, out tempM);
 
                 //CalculateStrains(oldXYZ, newXYZ, n, geometry.Count, 150, def_shape, out glob_strain);
 
@@ -238,7 +234,6 @@ namespace Beam3D
             Grasshopper.DataTree<double> def_shape_nested = ConvertToNestedList(def_shape);
             Grasshopper.DataTree<double> strain_nested = ConvertToNestedList(glob_strain);
             Grasshopper.DataTree<double> stresses_nested = ConvertToNestedList(glob_stress);
-            //Grasshopper.DataTree<double> mises_nested = ConvertToNestedList(mises_stress);
             tempM = tempM * E * Iz;
 
             double[,] def_m = new double[def_shape.RowCount, def_shape.ColumnCount];
@@ -254,10 +249,8 @@ namespace Beam3D
             DA.SetDataList(1, reactions);
             DA.SetDataTree(2, stresses_nested);
             DA.SetDataTree(3, strain_nested);
-            DA.SetDataList(4, tempM);
+            DA.SetData(4, def_shape);
             DA.SetDataList(5, oldXYZ);
-            DA.SetData(6, def_shape);
-            //if (stressList) { DA.SetDataList(6, s); };
 
         } //End of main component
 
@@ -386,7 +379,7 @@ namespace Beam3D
             return def_shape_nested;
         }
 
-        private void InterpolateDeformations(Vector<double> def, List<Point3d> points, List<Line> geometry, int n, int scale, double height, double width, out Matrix<double> def_shape, out List<Curve> defGeometry, out List<Point3d> oldXYZ, out Matrix<double> glob_strain, out Vector<double> tempM)
+        private void InterpolateDeformations(Vector<double> def, List<Point3d> points, List<Line> geometry, int n, double height, double width, out Matrix<double> def_shape, out List<Curve> defGeometry, out List<Point3d> oldXYZ, out Matrix<double> glob_strain, out Vector<double> tempM)
         {
             defGeometry = new List<Curve>();
             def_shape = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 6);
@@ -425,18 +418,11 @@ namespace Beam3D
                 //to show scaled deformations
                 Matrix<double> scaled_disp = Matrix<double>.Build.Dense(n + 1, 3);
                 
+                //transform to local coords
                 var tf = TransformationMatrix(geometry[i].From, geometry[i].To, 0);
                 var T = tf.DiagonalStack(tf);
                 T = T.DiagonalStack(T);
                 u = T * u;
-
-                ////prepare deformation vector for scaled results (for drawing of deformed geometry)
-                //if (scale != 1)
-                //{
-                //    v = scale * u;
-                //    Debug.WriteLine(u);
-                //    Debug.WriteLine(v);
-                //}
 
                 double x = 0;
                 for (int j = 0; j < n + 1; j++)
@@ -452,16 +438,6 @@ namespace Beam3D
                     Debug.WriteLine(t0);
                     disp.SetRow(j, new double[] { t0[0], t0[1], t0[2], t0[3] });
                     rot.SetRow(j, new double[] { rot[j, 0], t0[5], t0[4], rot[j, 3] });
-                    
-                    //if (scale != 1)
-                    //{
-                    //    var tempDisp = N.Multiply(v);
-
-                    //    var d1 = Vector.Build.DenseOfArray(new double[] { tempDisp[0], tempDisp[1], tempDisp[2] });
-                    //    t0 = tf.Transpose() * d1;
-
-                    //    scaled_disp.SetRow(j, new double[] { t0[0], t0[1], t0[2] });
-                    //}
                     x += L / n;
                 }
                 oldXYZ.AddRange(tempOld);
@@ -1213,7 +1189,7 @@ namespace Beam3D
 
             }
 
-            GH_Palette xColor = GH_Palette.Grey;
+            GH_Palette xColor = GH_Palette.Black;
             GH_Palette yColor = GH_Palette.Grey;
             GH_Palette zColor = GH_Palette.Grey;
 
