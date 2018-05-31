@@ -59,7 +59,7 @@ namespace Beam3D
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Deformations", "Def", "Tree of Deformations", GH_ParamAccess.tree);
-            pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Reaction Forces", "R", "Reaction Forces", GH_ParamAccess.list);
             pManager.AddNumberParameter("Applied Loads", "A", "Applied Loads", GH_ParamAccess.list);
             pManager.AddGenericParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.tree);
             pManager.AddGenericParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.tree);
@@ -425,7 +425,7 @@ namespace Beam3D
                     var d0 = new double[] { disp[j, 0], disp[j, 1], disp[j, 2] };
                     var r0 = new double[] { disp[j, 3], rot[j, 2], rot[j, 1] };
                     var t0 = ToGlobal(d0, r0, tf);
-                    Debug.WriteLine(t0);
+
                     disp.SetRow(j, new double[] { t0[0], t0[1], t0[2], t0[3] });
                     rot.SetRow(j, new double[] { rot[j, 0], t0[5], t0[4], rot[j, 3] });
                     x += L / n;
