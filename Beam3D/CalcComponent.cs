@@ -63,8 +63,9 @@ namespace Beam3D
             pManager.AddGenericParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.tree);
             pManager.AddGenericParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.tree);
             pManager.AddGenericParameter("Moment", "Strn", "The Mises Strain in each element", GH_ParamAccess.list);
-            pManager.AddCurveParameter("NurbsCurves", "Crv", "Deformed Geometry", GH_ParamAccess.list);
-            pManager.AddTextParameter("Above stress limit", "SL", "Main element and sub element above stress limit", GH_ParamAccess.list);
+            //pManager.AddCurveParameter("NurbsCurves", "Crv", "Deformed Geometry", GH_ParamAccess.list);
+            pManager.AddPointParameter("New Base Points", "NBP", "Nodal points of sub elements", GH_ParamAccess.list);
+            pManager.AddGenericParameter("def_shape", "ds", "Deformation points of sub elements", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -120,6 +121,8 @@ namespace Beam3D
             Vector<double> reactions;
             List<double> internalStresses;
             List<double> internalStrains;
+            List<Point3d> oldXYZ;
+
             Vector<double> tempM;
             List<Curve> defGeometry = new List<Curve>();    //output deformed geometry
 
@@ -199,7 +202,6 @@ namespace Beam3D
                 reactions = K_tot.Multiply(def_tot);
 
                 //Interpolate deformations using shape functions
-                List<Point3d> oldXYZ;
                 double y = 50;
                 var z = y;
                 InterpolateDeformations(def_tot, points, geometry, n, scale, z, y, out def_shape, out defGeometry, out oldXYZ, out glob_strain, out tempM);
@@ -227,6 +229,7 @@ namespace Beam3D
                 internalStresses = new List<double>(geometry.Count);
                 internalStresses.AddRange(new double[geometry.Count]);
                 internalStrains = internalStresses;
+                oldXYZ = new List<Point3d>();
                 #endregion
             }
             List<string> s = new List<string>();
@@ -238,12 +241,22 @@ namespace Beam3D
             //Grasshopper.DataTree<double> mises_nested = ConvertToNestedList(mises_stress);
             tempM = tempM * E * Iz;
 
+            double[,] def_m = new double[def_shape.RowCount, def_shape.ColumnCount];
+            for (int i = 0; i < def_shape.RowCount; i++)
+            {
+                for (int j = 0; j < def_shape.ColumnCount; j++)
+                {
+                    def_m[i, j] = def_shape[i, j];
+                }
+            }
+
             DA.SetDataTree(0, def_shape_nested);
             DA.SetDataList(1, reactions);
             DA.SetDataTree(2, stresses_nested);
             DA.SetDataTree(3, strain_nested);
             DA.SetDataList(4, tempM);
-            DA.SetDataList(5, defGeometry);
+            DA.SetDataList(5, oldXYZ);
+            DA.SetData(6, def_shape);
             //if (stressList) { DA.SetDataList(6, s); };
 
         } //End of main component
@@ -417,13 +430,13 @@ namespace Beam3D
                 T = T.DiagonalStack(T);
                 u = T * u;
 
-                //prepare deformation vector for scaled results (for drawing of deformed geometry)
-                if (scale != 1)
-                {
-                    v = scale * u;
-                    Debug.WriteLine(u);
-                    Debug.WriteLine(v);
-                }
+                ////prepare deformation vector for scaled results (for drawing of deformed geometry)
+                //if (scale != 1)
+                //{
+                //    v = scale * u;
+                //    Debug.WriteLine(u);
+                //    Debug.WriteLine(v);
+                //}
 
                 double x = 0;
                 for (int j = 0; j < n + 1; j++)
@@ -440,60 +453,23 @@ namespace Beam3D
                     disp.SetRow(j, new double[] { t0[0], t0[1], t0[2], t0[3] });
                     rot.SetRow(j, new double[] { rot[j, 0], t0[5], t0[4], rot[j, 3] });
                     
-                    if (scale != 1)
-                    {
-                        var tempDisp = N.Multiply(v);
+                    //if (scale != 1)
+                    //{
+                    //    var tempDisp = N.Multiply(v);
 
-                        var d1 = Vector.Build.DenseOfArray(new double[] { tempDisp[0], tempDisp[1], tempDisp[2] });
-                        t0 = tf.Transpose() * d1;
+                    //    var d1 = Vector.Build.DenseOfArray(new double[] { tempDisp[0], tempDisp[1], tempDisp[2] });
+                    //    t0 = tf.Transpose() * d1;
 
-                        scaled_disp.SetRow(j, new double[] { t0[0], t0[1], t0[2] });
-                        Debug.WriteLine(t0);
-
-                    }
+                    //    scaled_disp.SetRow(j, new double[] { t0[0], t0[1], t0[2] });
+                    //}
                     x += L / n;
                 }
-
-                //Calculate new nodal points
-                for (int j = 0; j < n + 1; j++)
-                {
-                    if (scale != 1)
-                    {
-                        //original xyz                        
-                        var tP = tempOld[j];
-                        Debug.WriteLine(tP);
-                        //add deformations
-                        tP.X = tP.X + scaled_disp[j, 0];
-                        tP.Y = tP.Y + scaled_disp[j, 1];
-                        tP.Z = tP.Z + scaled_disp[j, 2];
-                        
-                        //replace previous xyz with displaced xyz
-                        tempNew[j] = tP;
-                    }
-                    else
-                    {
-                        //original xyz                        
-                        var tP = tempOld[j];
-
-                        //add deformations
-                        tP.X = tP.X + disp[j, 0];
-                        tP.Y = tP.Y + disp[j, 1];
-                        tP.Z = tP.Z + disp[j, 2];
-
-                        //replace previous xyz with displaced xyz
-                        tempNew[j] = tP;
-                    }
-                }
-
-                //Create Curve based on new nodal points (degree = 3)
-                Curve nc = Curve.CreateInterpolatedCurve(tempNew, 3);
-                defGeometry.Add(nc);
                 oldXYZ.AddRange(tempOld);
 
                 //add deformation to def_shape (convert from i = nodal number to i = element number)
                 def_shape.SetRow(i, SetDef(n + 1, disp, rot));
 
-                Debug.WriteLine("element: " + i);
+                Debug.WriteLine(SetDef(n +1, disp, rot));
                 glob_strain.SetRow(i, CalculateStrain(n, height, width, u, tf, L, def_shape)); //set strains for all subelement in current element to row i
             }
         }
