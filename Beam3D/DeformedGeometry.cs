@@ -70,7 +70,7 @@ namespace Beam3D
             //scale deformations
             def = scale * def;
 
-
+            if (oldXYZ.Count == 0) return;
             //Calculate new nodal points
             for (int i = 0; i < def.RowCount; i++)
             {

@@ -198,7 +198,6 @@ namespace Beam3D
                 //Interpolate deformations using shape functions
                 double y = 50;
 
-                Debug.WriteLine(reactions);
                 var z = y;
                 InterpolateDeformations(def_tot, points, geometry, n, z, y, out def_shape, out oldXYZ, out glob_strain);
 
@@ -435,7 +434,6 @@ namespace Beam3D
                 //add deformation to def_shape (convert from i = nodal number to i = element number)
                 def_shape.SetRow(i, SetDef(n + 1, disp, rot));
 
-                Debug.WriteLine(SetDef(n +1, disp, rot));
                 glob_strain.SetRow(i, CalculateStrain(n, height, width, u, tf, L, def_shape)); //set strains for all subelement in current element to row i
             }
         }
@@ -443,7 +441,7 @@ namespace Beam3D
         private Vector<double> CalculateStrain(int n, double height, double width, Vector<double> u, Matrix<double> tf, double L, Matrix<double> def)
         {
             Matrix<double> dN, ddN;
-            double x = n / L;
+            double x = 0;
             var strains = Vector<double>.Build.Dense((n + 1) * 3); //contains all subelement strains (only for one element)
             for (int j = 0; j < n + 1; j++)
             {
@@ -453,42 +451,11 @@ namespace Beam3D
                 //u and N are in local coordinates
                 var tmp1 = dN * u; //tmp1 = du_x, du_y, du_z, dtheta_x
                 var tmp2 = ddN * u; //tmp2 = ddu_x/dx, ddu_y/dx, ddu_z_dx, ddtheta_x/dx
-
                 
-                //transform back to global coordinates
-                var d1 = new double[] { tmp1[0], tmp1[1], tmp1[2] }; //d1 = du_x, du_y, du_z
-                var r1 = new double[] { tmp1[3], tmp2[2], tmp2[1] }; //r1 = dtheta_x, dtheta_y, dtheta_z
-                var t1 = ToGlobal(d1, r1, tf); //t1 = global: du_x, du_y, du_z, dtheta_x, dtheta_y, dtheta_z
+                strains[j * 3] = tmp1[0];
+                strains[j * 3 + 1] = height * tmp2[2];
+                strains[j * 3 + 2] = width * tmp2[1];
                 
-                var epsA = t1[0];
-                var epsB = Vector<double>.Build.DenseOfArray(new double[2] { height * t1[4], width * t1[5] }); //placing and multiplying with height and width
-
-                strains[j] = epsA;
-                strains[j + 1] = epsB[0];
-                strains[j + 2] = epsB[1];
-
-                //Debug.WriteLine("def" + Environment.NewLine + def.Row(j));
-                //Debug.WriteLine("tmp1" + Environment.NewLine + tmp1);
-                //Debug.WriteLine("tmp2" + Environment.NewLine + tmp2);
-                //Debug.WriteLine("d1" + Environment.NewLine + d1[0] + "," + d1[1] + "," + d1[2]);
-                //Debug.WriteLine("r1" + Environment.NewLine + r1[0] + "," + r1[1] + "," + r1[2]);
-                //Debug.WriteLine("t1" + Environment.NewLine + t1.ToString());
-                //Debug.WriteLine("strains" + Environment.NewLine + strains);
-                //Debug.WriteLine("node: " + j);
-
-                //if (epsA > 0) //use positive polarity if the axial strains are positive (elongated)
-                //{
-                //    strains[j] = Math.Abs(epsB[0]) + Math.Abs(epsB[1]) + epsA; //using absolute values since we are looking for eps_x,max
-                //}
-                //else if (epsA < 0 || epsB[0] + epsB[1] < 0)    //negative polarity of axial strains are negative
-                //{
-                //    strains[j] = -(Math.Abs(epsB[0]) + Math.Abs(epsB[1]) + epsA);
-                //}
-                //else
-                //{
-                //    strains[j] = Math.Abs(epsB[0]) + Math.Abs(epsB[1]);
-                //}
-                ////tempM[j] = epsB[2];
                 x += L / n;
             }
             return strains;
