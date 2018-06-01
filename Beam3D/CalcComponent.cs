@@ -53,7 +53,6 @@ namespace Beam3D
             pManager.AddTextParameter("PointLoads", "PL", "Load given as Vector [N]", GH_ParamAccess.list);
             pManager.AddTextParameter("PointMoment", "PM", "Moment set in a point in [Nm]", GH_ParamAccess.list, "");
             pManager.AddIntegerParameter("Elements", "n", "Number of elements", GH_ParamAccess.item, 1);
-            pManager.AddIntegerParameter("Scale", "S", "Deformation Scale", GH_ParamAccess.item, 1);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
