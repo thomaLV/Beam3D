@@ -67,6 +67,9 @@ namespace Beam3D
             if (!DA.GetData(2, ref scale)) return;
 
 
+            //no. of nodes per element
+            int n = def.ColumnCount / 6;
+
             //scale deformations
             def = scale * def;
 
@@ -75,10 +78,10 @@ namespace Beam3D
             for (int i = 0; i < def.RowCount; i++)
             {
                 List<Point3d> tempNew = new List<Point3d>();
-                for (int j = 0; j < def.ColumnCount / 6; j++)
+                for (int j = 0; j < n; j++)
                 {
                     //original xyz
-                    var tP = oldXYZ[i + j];
+                    var tP = oldXYZ[i * n + j];
 
                     //add deformations
                     tP.X = tP.X + def[i, j * 6];
