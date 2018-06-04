@@ -188,10 +188,9 @@ namespace Beam3D
                 //Add the clamped dofs (= 0) to the deformations list
                 Vector<double> def_tot = RestoreTotalDeformationVector(def_red, bdc_value);
 
-                
                 //Calculate the reaction forces from the deformations
                 reactions = K_tot.Multiply(def_tot);
-                reactions -= load;
+                reactions -= load; //method for separating reactions and applied loads
                 reactions.CoerceZero(1e-10);
 
                 //Interpolate deformations using shape functions
@@ -201,14 +200,6 @@ namespace Beam3D
                 InterpolateDeformations(def_tot, points, geometry, n, z, y, out def_shape, out oldXYZ, out glob_strain);
 
                 glob_stress = E * glob_strain;
-
-                //CalculateStrains(oldXYZ, newXYZ, n, geometry.Count, 150, def_shape, out glob_strain);
-
-                ////Calculate the internal strains and stresses in each member
-                //CalculateInternalStresses(glob_strain, E, G, v, out glob_stress);
-
-                ////Calculate the internal strains and stresses in each member
-                //CalculateMisesStresses(glob_stress, out mises_stress);
                 #endregion
 
             }
@@ -223,9 +214,6 @@ namespace Beam3D
                 oldXYZ = new List<Point3d>();
                 #endregion
             }
-            List<string> s = new List<string>();
-            //if (stressList) { s = AboveStressLimit(mises_stress, 350); };
-
             Grasshopper.DataTree<double> def_shape_nested = ConvertToNestedList(def_shape);
             Grasshopper.DataTree<double> strain_nested = ConvertToNestedList(glob_strain);
             Grasshopper.DataTree<double> stresses_nested = ConvertToNestedList(glob_stress);
@@ -344,19 +332,7 @@ namespace Beam3D
         //        }
         //    }
         //}
-
-        //private void CalculateInternalStresses(Matrix<double> strain, double E, out Matrix<double> stress)
-        //{
-        //    //strain = [ex, ey, ez, gxy, gyz, gzx]
-        //    stress = Matrix<double>.Build.Dense(strain.RowCount, strain.ColumnCount);
-        //    for (int i = 0; i < strain.RowCount; i++)
-        //    {
-        //        for (int j = 0; j < strain.ColumnCount; j++)
-        //        {
-        //            stress[i, j] = strain[i, j] * E;
-        //        }
-        //    }
-        //}
+        
 
         private Grasshopper.DataTree<double> ConvertToNestedList(Matrix<double> M)
         {
