@@ -68,6 +68,10 @@ namespace Beam3D
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            Stopwatch watch = new Stopwatch();
+            watch.Start();
+            string ctime = "START OF TESTING" + Environment.NewLine;
+
             #region Fetch input
             //Expected inputs
             List<Line> geometry = new List<Line>();         //Initial Geometry of lines
@@ -95,6 +99,12 @@ namespace Beam3D
             double J;       //Polar moment of inertia
             double G;       //Shear modulus, initial value 79300 [mm^4]
             double v;       //Poisson's ratio, initial value 0.3
+
+            watch.Stop();
+            ctime += "Elements: " + geometry.Count.ToString() + Environment.NewLine + "fetch: " + watch.ElapsedMilliseconds + Environment.NewLine;
+            watch.Reset();
+            watch.Start();
+
             SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G, out v);
 
             #region Prepares geometry, boundary conditions and loads for calculation
@@ -116,6 +126,10 @@ namespace Beam3D
             
             List<Curve> defGeometry = new List<Curve>();    //output deformed geometry
 
+            watch.Stop();
+            ctime += "prep: " + watch.ElapsedMilliseconds + Environment.NewLine;
+            watch.Reset();
+            watch.Start();
 
             if (startCalc)
             {
@@ -123,11 +137,21 @@ namespace Beam3D
                 //Create global stiffness matrix
                 Matrix<double> K_tot = GlobalStiffnessMatrix(geometry, points, E, A, Iy, Iz, J, G);
 
+                watch.Stop();
+                ctime += "global: " + watch.ElapsedMilliseconds + Environment.NewLine;
+                watch.Reset();
+                watch.Start();
+
                 //Create reduced K-matrix and reduced load list (removed free dofs)
                 Matrix<double> KGr;
                 Vector<double> load_red;
                 ReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out KGr, out load_red);
                 #endregion
+
+                watch.Stop();
+                ctime += "reduce: " + watch.ElapsedMilliseconds + Environment.NewLine;
+                watch.Reset();
+                watch.Start();
 
                 #region Solver Performance Test
                 if (startTest)
@@ -185,19 +209,39 @@ namespace Beam3D
                 //Calculate deformations
                 Vector<double> def_red = KGr.Cholesky().Solve(load_red);
 
+                watch.Stop();
+                ctime += "cholesky: " + watch.ElapsedMilliseconds + Environment.NewLine;
+                watch.Reset();
+                watch.Start();
+
                 //Add the clamped dofs (= 0) to the deformations list
                 Vector<double> def_tot = RestoreTotalDeformationVector(def_red, bdc_value);
+
+                watch.Stop();
+                ctime += "restore: " + watch.ElapsedMilliseconds + Environment.NewLine;
+                watch.Reset();
+                watch.Start();
 
                 //Calculate the reaction forces from the deformations
                 reactions = K_tot.Multiply(def_tot);
                 reactions -= load; //method for separating reactions and applied loads
                 reactions.CoerceZero(1e-10);
 
+                watch.Stop();
+                ctime += "reactions: " + watch.ElapsedMilliseconds + Environment.NewLine;
+                watch.Reset();
+                watch.Start();
+
                 //Interpolate deformations using shape functions
                 double y = 50;
 
                 var z = y;
                 InterpolateDeformations(def_tot, points, geometry, n, z, y, out def_shape, out oldXYZ, out glob_strain);
+
+                watch.Stop();
+                ctime += "n: " + n + Environment.NewLine + "interpolate: " + watch.ElapsedMilliseconds + Environment.NewLine;
+                watch.Reset();
+                watch.Start();
 
                 glob_stress = E * glob_strain;
                 #endregion
@@ -234,6 +278,24 @@ namespace Beam3D
             DA.SetDataTree(4, strain_nested);
             DA.SetData(5, def_shape);
             DA.SetDataList(6, oldXYZ);
+
+            watch.Stop();
+            ctime += "output: " + watch.ElapsedMilliseconds + Environment.NewLine + "END OF TEST" + Environment.NewLine;
+
+            //append result to txt-file (at buildpath)
+            try
+            {
+                using (System.IO.StreamWriter file =
+                new System.IO.StreamWriter(@"compTest.txt", true))
+                {
+                    file.WriteLine(ctime);
+                }
+            }
+            //create new file if solverTest.txt does not exist
+            catch (System.IO.DirectoryNotFoundException)
+            {
+                System.IO.File.WriteAllText(@"\compTest.txt", ctime);
+            }
 
         } //End of main component
 
