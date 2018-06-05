@@ -1146,16 +1146,16 @@ namespace Beam3D
                 rec1.Height = 22;
                 rec1.Inflate(-2, -2);
 
-                Rectangle rec2 = rec1;
-                rec2.X = rec1.Right + 2;
+                //Rectangle rec2 = rec1;
+                //rec2.X = rec1.Right + 2;
 
-                Rectangle rec3 = rec1;
-                rec3.X = rec2.Right + 2;
+                //Rectangle rec3 = rec1;
+                //rec3.X = rec2.Right + 2;
 
                 Bounds = rec0;
                 ButtonBounds = rec1;
-                ButtonBounds2 = rec2;
-                ButtonBounds3 = rec3;
+                //ButtonBounds2 = rec2;
+                //ButtonBounds3 = rec3;
 
             }
 
