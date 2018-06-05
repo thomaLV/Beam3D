@@ -245,7 +245,7 @@ namespace Beam3D
             {
                 for (int j = 0; j < def_shape.ColumnCount; j++)
                 {
-                    def[i] = def_shape[i, j];
+                    def[i* def_shape.ColumnCount + j] = def_shape[i, j];
                 }
             }
 
@@ -255,8 +255,8 @@ namespace Beam3D
             {
                 for (int j = 0; j < glob_stress.ColumnCount; j++)
                 {
-                    stress[i] = glob_stress[i, j];
-                    strain[i] = glob_strain[i, j];
+                    stress[i * glob_stress.ColumnCount + j] = glob_stress[i, j];
+                    strain[i * glob_stress.ColumnCount + j] = glob_strain[i, j];
                 }
             }
             #endregion
@@ -397,8 +397,8 @@ namespace Beam3D
             for (int i = 0; i < geometry.Count; i++)
             {
                 //fetches index of original start and endpoint
-                Point3d p1 = new Point3d(Math.Round(geometry[i].From.X, 5), Math.Round(geometry[i].From.Y, 5), Math.Round(geometry[i].From.Z, 5));
-                Point3d p2 = new Point3d(Math.Round(geometry[i].To.X, 5), Math.Round(geometry[i].To.Y, 5), Math.Round(geometry[i].To.Z, 5));
+                Point3d p1 = new Point3d(Math.Round(geometry[i].From.X, 4), Math.Round(geometry[i].From.Y, 4), Math.Round(geometry[i].From.Z, 4));
+                Point3d p2 = new Point3d(Math.Round(geometry[i].To.X, 4), Math.Round(geometry[i].To.Y, 4), Math.Round(geometry[i].To.Z, 4));
                 int i1 = points.IndexOf(p1);
                 int i2 = points.IndexOf(p2);
                 //create 12x1 deformation vector for element (6dofs), scaled and populated with existing deformations
