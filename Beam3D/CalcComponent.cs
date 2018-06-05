@@ -25,7 +25,7 @@ namespace Beam3D
 
         //Initialize moments
         static bool startCalc = false;
-        static bool startTest = false;
+        //static bool startTest = false;
 
         //Method to allow c hanging of variables via GUI (see Component Visual)
         public static void setStart(string s, bool i)
@@ -34,10 +34,10 @@ namespace Beam3D
             {
                 startCalc = i;
             }
-            if (s == "Run Test")
-            {
-                startTest = i;
-            }
+            //if (s == "Run Test")
+            //{
+            //    startTest = i;
+            //}
         }
 
         public override void CreateAttributes()
@@ -71,11 +71,7 @@ namespace Beam3D
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            Stopwatch watch = new Stopwatch();
-            watch.Start();
-            string ctime = "START OF TESTING" + Environment.NewLine;
-
-            #region Fetch input
+           #region Fetch input
             //Expected inputs
             List<Line> geometry = new List<Line>();         //Initial Geometry of lines
             List<string> bdctxt = new List<string>();       //Boundary conditions in string format
@@ -103,10 +99,6 @@ namespace Beam3D
             double G;       //Shear modulus, initial value 79300 [mm^4]
             double v;       //Poisson's ratio, initial value 0.3
 
-            watch.Stop();
-            ctime += "Elements: " + geometry.Count.ToString() + Environment.NewLine + "fetch: " + watch.ElapsedMilliseconds + Environment.NewLine;
-            watch.Reset();
-            watch.Start();
 
             SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G, out v);
 
@@ -129,10 +121,6 @@ namespace Beam3D
             
             List<Curve> defGeometry = new List<Curve>();    //output deformed geometry
 
-            watch.Stop();
-            ctime += "prep: " + watch.ElapsedMilliseconds + Environment.NewLine;
-            watch.Reset();
-            watch.Start();
 
             if (startCalc)
             {
@@ -140,10 +128,6 @@ namespace Beam3D
                 //Create global stiffness matrix
                 Matrix<double> K_tot = GlobalStiffnessMatrix(geometry, points, E, A, Iy, Iz, J, G);
 
-                watch.Stop();
-                ctime += "global: " + watch.ElapsedMilliseconds + Environment.NewLine;
-                watch.Reset();
-                watch.Start();
 
                 //Create reduced K-matrix and reduced load list (removed free dofs)
                 Matrix<double> KGr;
@@ -151,89 +135,72 @@ namespace Beam3D
                 ReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out KGr, out load_red);
                 #endregion
 
-                watch.Stop();
-                ctime += "reduce: " + watch.ElapsedMilliseconds + Environment.NewLine;
-                watch.Reset();
-                watch.Start();
-
                 #region Solver Performance Test
-                if (startTest)
-                {
-                    string output_time = "";
-                    string performanceResult = "=================START OF TEST=================" + Environment.NewLine;
-                    performanceResult += "Number of lines: " + geometry.Count.ToString() + Environment.NewLine;
-                    string tester = "";
+                //if (startTest)
+                //{
+                //    string output_time = "";
+                //    string performanceResult = "=================START OF TEST=================" + Environment.NewLine;
+                //    performanceResult += "Number of lines: " + geometry.Count.ToString() + Environment.NewLine;
+                //    string tester = "";
 
-                    //checking for error with writing to file (skip test if unable to write)
-                    try
-                    {
-                        using (System.IO.StreamWriter file =
-                        new System.IO.StreamWriter(@"solverTest.txt", true))
-                        {
-                            file.WriteLine(tester);
-                        }
-                    }
-                    //create new file if solverTest.txt does not exist
-                    catch (System.IO.DirectoryNotFoundException)
-                    {
-                        System.IO.File.WriteAllText(@"solverTest.txt", tester);
-                    }
-                    //other exception (no write access?)
-                    catch (Exception)
-                    {
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Write to file error! Create file solverTest.txt in Koala folder and/or Rhinoceros 5.exe folder");
-                        return;
-                    }
+                //    //checking for error with writing to file (skip test if unable to write)
+                //    try
+                //    {
+                //        using (System.IO.StreamWriter file =
+                //        new System.IO.StreamWriter(@"solverTest.txt", true))
+                //        {
+                //            file.WriteLine(tester);
+                //        }
+                //    }
+                //    //create new file if solverTest.txt does not exist
+                //    catch (System.IO.DirectoryNotFoundException)
+                //    {
+                //        System.IO.File.WriteAllText(@"solverTest.txt", tester);
+                //    }
+                //    //other exception (no write access?)
+                //    catch (Exception)
+                //    {
+                //        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Write to file error! Create file solverTest.txt in Koala folder and/or Rhinoceros 5.exe folder");
+                //        return;
+                //    }
 
-                    int decimals = 2;
-                    CheckSolvers(KGr, load_red, decimals, out output_time);
+                //    int decimals = 2;
+                //    CheckSolvers(KGr, load_red, decimals, out output_time);
 
-                    performanceResult += output_time;
+                //    performanceResult += output_time;
 
-                    //append result to txt-file (at buildpath)
-                    try
-                    {
-                        using (System.IO.StreamWriter file =
-                        new System.IO.StreamWriter(@"solverTest.txt", true))
-                        {
-                            file.WriteLine(performanceResult);
-                        }
-                    }
-                    //create new file if solverTest.txt does not exist
-                    catch (System.IO.DirectoryNotFoundException)
-                    {
-                        System.IO.File.WriteAllText(@"\solverTest.txt", output_time);
-                    }
+                //    //append result to txt-file (at buildpath)
+                //    try
+                //    {
+                //        using (System.IO.StreamWriter file =
+                //        new System.IO.StreamWriter(@"solverTest.txt", true))
+                //        {
+                //            file.WriteLine(performanceResult);
+                //        }
+                //    }
+                //    //create new file if solverTest.txt does not exist
+                //    catch (System.IO.DirectoryNotFoundException)
+                //    {
+                //        System.IO.File.WriteAllText(@"\solverTest.txt", output_time);
+                //    }
 
-                }
+                //}
                 #endregion
 
                 #region Calculate deformations, reaction forces and internal strains and stresses
                 //Calculate deformations
                 Vector<double> def_red = KGr.Cholesky().Solve(load_red);
 
-                watch.Stop();
-                ctime += "cholesky: " + watch.ElapsedMilliseconds + Environment.NewLine;
-                watch.Reset();
-                watch.Start();
 
                 //Add the clamped dofs (= 0) to the deformations list
                 Vector<double> def_tot = RestoreTotalDeformationVector(def_red, bdc_value);
 
-                watch.Stop();
-                ctime += "restore: " + watch.ElapsedMilliseconds + Environment.NewLine;
-                watch.Reset();
-                watch.Start();
 
                 //Calculate the reaction forces from the deformations
                 reactions = K_tot.Multiply(def_tot);
                 reactions -= load; //method for separating reactions and applied loads
                 reactions.CoerceZero(1e-10);
 
-                watch.Stop();
-                ctime += "reactions: " + watch.ElapsedMilliseconds + Environment.NewLine;
-                watch.Reset();
-                watch.Start();
 
                 //Interpolate deformations using shape functions
                 double y = 50;
@@ -241,11 +208,8 @@ namespace Beam3D
                 var z = y;
                 InterpolateDeformations(def_tot, points, geometry, n, z, y, out def_shape, out oldXYZ, out glob_strain);
 
-                watch.Stop();
-                ctime += "n: " + n + Environment.NewLine + "interpolate: " + watch.ElapsedMilliseconds + Environment.NewLine;
-                watch.Reset();
-                watch.Start();
 
+                //Calculate stresses
                 glob_stress = E * glob_strain;
                 #endregion
 
@@ -309,24 +273,6 @@ namespace Beam3D
             DA.SetData(5, def_shape);
             DA.SetDataList(6, oldXYZ);
 
-            watch.Stop();
-            ctime += "output: " + watch.ElapsedMilliseconds + Environment.NewLine + "END OF TEST" + Environment.NewLine;
-
-            //append result to txt-file (at buildpath)
-            try
-            {
-                using (System.IO.StreamWriter file =
-                new System.IO.StreamWriter(@"compTest.txt", true))
-                {
-                    file.WriteLine(ctime);
-                }
-            }
-            //create new file if solverTest.txt does not exist
-            catch (System.IO.DirectoryNotFoundException)
-            {
-                System.IO.File.WriteAllText(@"\compTest.txt", ctime);
-            }
-
         } //End of main component
 
         //private void CalculateStrains(List<Point3d> old, List<Point3d> new1, int n, int m, double z, Matrix<double> def_shape, out Matrix<double> glob_strain)
@@ -346,42 +292,42 @@ namespace Beam3D
         //    }
         //}
 
-        private List<string> AboveStressLimit(Matrix<double> mises_stress, double limit)
-        {
-            List<string> s = new List<string>();
-            for (int i = 0; i < mises_stress.RowCount; i++)
-            {
-                string ts = "";
-                string ds = "";
-                bool f = true;
-                for (int j = 0; j < mises_stress.ColumnCount; j++)
-                {
-                    if (mises_stress[i, j] > limit)
-                    {
-                        if (f)
-                        {
-                            ts += j;
-                            ds += Math.Round(mises_stress[i, j]);
-                            f = false;
-                        }
-                        else
-                        {
-                            ts += ", " + j;
-                            ds += ", " + Math.Round(mises_stress[i, j]);
-                        }
-                    }
-                }
-                if (ts.Length > 0)
-                {
-                    s.Add("Main element: " + i + "; Sub element(s): " + ts + "; Stresses: " + ds);
-                }
-            }
-            if (s.Count == 0)
-            {
-                s.Add("No elements had stresses above: " + limit + "[MPa]");
-            }
-            return s;
-        }
+        //private List<string> AboveStressLimit(Matrix<double> mises_stress, double limit)
+        //{
+        //    List<string> s = new List<string>();
+        //    for (int i = 0; i < mises_stress.RowCount; i++)
+        //    {
+        //        string ts = "";
+        //        string ds = "";
+        //        bool f = true;
+        //        for (int j = 0; j < mises_stress.ColumnCount; j++)
+        //        {
+        //            if (mises_stress[i, j] > limit)
+        //            {
+        //                if (f)
+        //                {
+        //                    ts += j;
+        //                    ds += Math.Round(mises_stress[i, j]);
+        //                    f = false;
+        //                }
+        //                else
+        //                {
+        //                    ts += ", " + j;
+        //                    ds += ", " + Math.Round(mises_stress[i, j]);
+        //                }
+        //            }
+        //        }
+        //        if (ts.Length > 0)
+        //        {
+        //            s.Add("Main element: " + i + "; Sub element(s): " + ts + "; Stresses: " + ds);
+        //        }
+        //    }
+        //    if (s.Count == 0)
+        //    {
+        //        s.Add("No elements had stresses above: " + limit + "[MPa]");
+        //    }
+        //    return s;
+        //}
 
         //private void CalculateMisesStresses(Matrix<double> glob_stress, out Matrix<double> mises_stress)
         //{
@@ -425,7 +371,6 @@ namespace Beam3D
         //    }
         //}
         
-
         private Grasshopper.DataTree<double> ConvertToNestedList(Matrix<double> M)
         {
             //Convert matrix rows to paths
@@ -1215,12 +1160,12 @@ namespace Beam3D
             }
 
             GH_Palette xColor = GH_Palette.Grey;
-            GH_Palette yColor = GH_Palette.Grey;
-            GH_Palette zColor = GH_Palette.Grey;
+            //GH_Palette yColor = GH_Palette.Grey;
+            //GH_Palette zColor = GH_Palette.Grey;
 
             private Rectangle ButtonBounds { get; set; }
-            private Rectangle ButtonBounds2 { get; set; }
-            private Rectangle ButtonBounds3 { get; set; }
+            //private Rectangle ButtonBounds2 { get; set; }
+            //private Rectangle ButtonBounds3 { get; set; }
 
             protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
             {
@@ -1231,18 +1176,18 @@ namespace Beam3D
                     button.Render(graphics, Selected, false, false);
                     button.Dispose();
                 }
-                if (channel == GH_CanvasChannel.Objects)
-                {
-                    GH_Capsule button2 = GH_Capsule.CreateTextCapsule(ButtonBounds2, ButtonBounds2, yColor, "Run Test", 2, 0);
-                    button2.Render(graphics, Selected, Owner.Locked, false);
-                    button2.Dispose();
-                }
-                if (channel == GH_CanvasChannel.Objects)
-                {
-                    GH_Capsule button3 = GH_Capsule.CreateTextCapsule(ButtonBounds3, ButtonBounds3, zColor, "AboveLimit", 2, 0);
-                    button3.Render(graphics, Selected, Owner.Locked, false);
-                    button3.Dispose();
-                }
+                //if (channel == GH_CanvasChannel.Objects)
+                //{
+                //    GH_Capsule button2 = GH_Capsule.CreateTextCapsule(ButtonBounds2, ButtonBounds2, yColor, "Run Test", 2, 0);
+                //    button2.Render(graphics, Selected, Owner.Locked, false);
+                //    button2.Dispose();
+                //}
+                //if (channel == GH_CanvasChannel.Objects)
+                //{
+                //    GH_Capsule button3 = GH_Capsule.CreateTextCapsule(ButtonBounds3, ButtonBounds3, zColor, "AboveLimit", 2, 0);
+                //    button3.Render(graphics, Selected, Owner.Locked, false);
+                //    button3.Dispose();
+                //}
             }
 
             public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
@@ -1258,24 +1203,24 @@ namespace Beam3D
                         sender.Refresh();
                         return GH_ObjectResponse.Handled;
                     }
-                    rec = ButtonBounds2;
-                    if (rec.Contains(e.CanvasLocation))
-                    {
-                        switchColor("Run Test");
-                        if (yColor == GH_Palette.Black) { CalcComponent.setStart("Run Test", true); Owner.ExpireSolution(true); }
-                        if (yColor == GH_Palette.Grey) { CalcComponent.setStart("Run Test", false); }
-                        sender.Refresh();
-                        return GH_ObjectResponse.Handled;
-                    }
-                    rec = ButtonBounds3;
-                    if (rec.Contains(e.CanvasLocation))
-                    {
-                        switchColor("AboveLimit");
-                        if (zColor == GH_Palette.Black) { CalcComponent.setStart("AboveLimit", true); Owner.ExpireSolution(true); }
-                        if (zColor == GH_Palette.Grey) { CalcComponent.setStart("AboveLimit", false); }
-                        sender.Refresh();
-                        return GH_ObjectResponse.Handled;
-                    }
+                    //rec = ButtonBounds2;
+                    //if (rec.Contains(e.CanvasLocation))
+                    //{
+                    //    switchColor("Run Test");
+                    //    if (yColor == GH_Palette.Black) { CalcComponent.setStart("Run Test", true); Owner.ExpireSolution(true); }
+                    //    if (yColor == GH_Palette.Grey) { CalcComponent.setStart("Run Test", false); }
+                    //    sender.Refresh();
+                    //    return GH_ObjectResponse.Handled;
+                    //}
+                    //rec = ButtonBounds3;
+                    //if (rec.Contains(e.CanvasLocation))
+                    //{
+                    //    switchColor("AboveLimit");
+                    //    if (zColor == GH_Palette.Black) { CalcComponent.setStart("AboveLimit", true); Owner.ExpireSolution(true); }
+                    //    if (zColor == GH_Palette.Grey) { CalcComponent.setStart("AboveLimit", false); }
+                    //    sender.Refresh();
+                    //    return GH_ObjectResponse.Handled;
+                    //}
                 }
                 return base.RespondToMouseDown(sender, e);
             }
@@ -1287,16 +1232,16 @@ namespace Beam3D
                     if (xColor == GH_Palette.Black) { xColor = GH_Palette.Grey; }
                     else { xColor = GH_Palette.Black; }
                 }
-                else if (button == "Run Test")
-                {
-                    if (yColor == GH_Palette.Black) { yColor = GH_Palette.Grey; }
-                    else { yColor = GH_Palette.Black; }
-                }
-                else if (button == "AboveLimit")
-                {
-                    if (zColor == GH_Palette.Black) { zColor = GH_Palette.Grey; }
-                    else { zColor = GH_Palette.Black; }
-                }
+                //else if (button == "Run Test")
+                //{
+                //    if (yColor == GH_Palette.Black) { yColor = GH_Palette.Grey; }
+                //    else { yColor = GH_Palette.Black; }
+                //}
+                //else if (button == "AboveLimit")
+                //{
+                //    if (zColor == GH_Palette.Black) { zColor = GH_Palette.Grey; }
+                //    else { zColor = GH_Palette.Black; }
+                //}
             }
         }
     }
