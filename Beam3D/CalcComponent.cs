@@ -57,11 +57,14 @@ namespace Beam3D
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Deformations", "Def", "Tree of Deformations", GH_ParamAccess.tree);
+            //pManager.AddGenericParameter("Deformations", "Def", "Tree of Deformations", GH_ParamAccess.tree);
+            pManager.AddNumberParameter("Deformations", "Def", "Tree of Deformations", GH_ParamAccess.list);
             pManager.AddNumberParameter("Reaction Forces", "R", "Reaction Forces", GH_ParamAccess.list);
             pManager.AddNumberParameter("Applied Loads", "A", "Applied Loads", GH_ParamAccess.list);
-            pManager.AddGenericParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.tree);
-            pManager.AddGenericParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.tree);
+            //pManager.AddGenericParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.tree);
+            //pManager.AddGenericParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.tree);
+            pManager.AddNumberParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
             pManager.AddGenericParameter("Matrix Deformations", "DM", "Deformation Matrix for def. component", GH_ParamAccess.item);
             pManager.AddPointParameter("New Base Points", "NBP", "Nodal points of sub elements", GH_ParamAccess.list);
         }
@@ -258,9 +261,11 @@ namespace Beam3D
                 oldXYZ = new List<Point3d>();
                 #endregion
             }
-            Grasshopper.DataTree<double> def_shape_nested = ConvertToNestedList(def_shape);
-            Grasshopper.DataTree<double> strain_nested = ConvertToNestedList(glob_strain);
-            Grasshopper.DataTree<double> stresses_nested = ConvertToNestedList(glob_stress);
+
+            #region Format output
+            //Grasshopper.DataTree<double> def_shape_nested = ConvertToNestedList(def_shape);
+            //Grasshopper.DataTree<double> strain_nested = ConvertToNestedList(glob_strain);
+            //Grasshopper.DataTree<double> stresses_nested = ConvertToNestedList(glob_stress);
 
             double[,] def_m = new double[def_shape.RowCount, def_shape.ColumnCount];
             for (int i = 0; i < def_shape.RowCount; i++)
@@ -271,11 +276,36 @@ namespace Beam3D
                 }
             }
 
-            DA.SetDataTree(0, def_shape_nested);
+            double[] def = new double[def_shape.RowCount * def_shape.ColumnCount];
+            for (int i = 0; i < def_shape.RowCount; i++)
+            {
+                for (int j = 0; j < def_shape.ColumnCount; j++)
+                {
+                    def[i] = def_shape[i, j];
+                }
+            }
+
+            double[] strain = new double[glob_strain.RowCount * glob_strain.ColumnCount];
+            double[] stress = new double[glob_stress.RowCount * glob_stress.ColumnCount];
+            for (int i = 0; i < glob_stress.RowCount; i++)
+            {
+                for (int j = 0; j < glob_stress.ColumnCount; j++)
+                {
+                    stress[i] = glob_stress[i, j];
+                    strain[i] = glob_strain[i, j];
+                }
+            }
+            #endregion
+
+            //DA.SetDataTree(0, def_shape_nested);
+            //DA.SetDataTree(3, stresses_nested);
+            //DA.SetDataTree(4, strain_nested);
+
+            DA.SetDataList(0, def);
             DA.SetDataList(1, reactions);
             DA.SetDataList(2, load);
-            DA.SetDataTree(3, stresses_nested);
-            DA.SetDataTree(4, strain_nested);
+            DA.SetDataList(3, stress);
+            DA.SetDataList(4, strain);
             DA.SetData(5, def_shape);
             DA.SetDataList(6, oldXYZ);
 
@@ -421,10 +451,11 @@ namespace Beam3D
             oldXYZ = new List<Point3d>();
             for (int i = 0; i < geometry.Count; i++)
             {
-
                 //fetches index of original start and endpoint
-                int i1 = points.IndexOf(geometry[i].From);
-                int i2 = points.IndexOf(geometry[i].To);
+                Point3d p1 = new Point3d(Math.Round(geometry[i].From.X, 5), Math.Round(geometry[i].From.Y, 5), Math.Round(geometry[i].From.Z, 5));
+                Point3d p2 = new Point3d(Math.Round(geometry[i].To.X, 5), Math.Round(geometry[i].To.Y, 5), Math.Round(geometry[i].To.Z, 5));
+                int i1 = points.IndexOf(p1);
+                int i2 = points.IndexOf(p2);
                 //create 12x1 deformation vector for element (6dofs), scaled and populated with existing deformations
                 for (int j = 0; j < 6; j++)
                 {
