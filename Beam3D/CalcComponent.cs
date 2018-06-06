@@ -49,7 +49,7 @@ namespace Beam3D
         {
             pManager.AddLineParameter("Lines", "LNS", "Geometry, in form of Lines)", GH_ParamAccess.list);
             pManager.AddTextParameter("Boundary Conditions", "BDC", "Boundary Conditions in form x,y,z,vx,vy,vz,rx,ry,rz", GH_ParamAccess.list);
-            pManager.AddTextParameter("Material properties", "Mat", "Material Properties: E, A, Iy, Iz, G, v", GH_ParamAccess.item, "210000,3600,4920000,4920000,79300, 0.3");
+            pManager.AddTextParameter("Material properties", "Mat", "Material Properties: E, A, Iy, Iz, v, alpha (rotation about x)", GH_ParamAccess.item, "200000,3600,4920000,4920000, 0.3, 0");
             pManager.AddTextParameter("PointLoads", "PL", "Load given as Vector [N]", GH_ParamAccess.list);
             pManager.AddTextParameter("PointMoment", "PM", "Moment set in a point in [Nm]", GH_ParamAccess.list, "");
             pManager.AddIntegerParameter("Elements", "n", "Number of elements", GH_ParamAccess.item, 1);
@@ -91,16 +91,17 @@ namespace Beam3D
             #endregion
 
             //Interpret and set material parameters
-            double E;       //Material Young's modulus, initial value 210000 [MPa]
+            double E;       //Material Young's modulus, initial value 200 000 [MPa]
             double A;       //Area for each element in same order as geometry, initial value CFS100x100 3600 [mm^2]
             double Iy;      //Moment of inertia about local y axis, initial value 4.92E6 [mm^4]
             double Iz;      //Moment of inertia about local z axis, initial value 4.92E6 [mm^4]
             double J;       //Polar moment of inertia
             double G;       //Shear modulus, initial value 79300 [mm^4]
             double v;       //Poisson's ratio, initial value 0.3
+            double alpha;
 
 
-            SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G, out v);
+            SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G, out v, out alpha);
 
             #region Prepares geometry, boundary conditions and loads for calculation
             //List all nodes (every node only once), numbering them according to list index
@@ -126,7 +127,7 @@ namespace Beam3D
             {
                 #region Create global and reduced stiffness matrix
                 //Create global stiffness matrix
-                Matrix<double> K_tot = GlobalStiffnessMatrix(geometry, points, E, A, Iy, Iz, J, G);
+                Matrix<double> K_tot = GlobalStiffnessMatrix(geometry, points, E, A, Iy, Iz, J, G, alpha);
 
 
                 //Create reduced K-matrix and reduced load list (removed free dofs)
@@ -206,7 +207,7 @@ namespace Beam3D
                 double y = 50;
 
                 var z = y;
-                InterpolateDeformations(def_tot, points, geometry, n, z, y, out def_shape, out oldXYZ, out glob_strain);
+                InterpolateDeformations(def_tot, points, geometry, n, z, y, alpha, out def_shape, out oldXYZ, out glob_strain);
 
 
                 //Calculate stresses
@@ -275,102 +276,6 @@ namespace Beam3D
 
         } //End of main component
 
-        //private void CalculateStrains(List<Point3d> old, List<Point3d> new1, int n, int m, double z, Matrix<double> def_shape, out Matrix<double> glob_strain)
-        //{
-        //    glob_strain = Matrix<double>.Build.Dense(m, n); //geometry.Count rows, n columns
-        //    for (int i = 0; i < m; i++)
-        //    {
-        //        for (int j = 0; j < n; j++)
-        //        {
-        //            var originL = old[m + j].DistanceTo(old[m + j + 1]);
-        //            var dL = new1[m + j].DistanceTo(new1[m + j + 1]) - originL;
-        //            var eps_x_ax = dL / originL;
-
-        //            TransformationMatrix()
-        //            var eps_x_b = 
-        //        }
-        //    }
-        //}
-
-        //private List<string> AboveStressLimit(Matrix<double> mises_stress, double limit)
-        //{
-        //    List<string> s = new List<string>();
-        //    for (int i = 0; i < mises_stress.RowCount; i++)
-        //    {
-        //        string ts = "";
-        //        string ds = "";
-        //        bool f = true;
-        //        for (int j = 0; j < mises_stress.ColumnCount; j++)
-        //        {
-        //            if (mises_stress[i, j] > limit)
-        //            {
-        //                if (f)
-        //                {
-        //                    ts += j;
-        //                    ds += Math.Round(mises_stress[i, j]);
-        //                    f = false;
-        //                }
-        //                else
-        //                {
-        //                    ts += ", " + j;
-        //                    ds += ", " + Math.Round(mises_stress[i, j]);
-        //                }
-        //            }
-        //        }
-        //        if (ts.Length > 0)
-        //        {
-        //            s.Add("Main element: " + i + "; Sub element(s): " + ts + "; Stresses: " + ds);
-        //        }
-        //    }
-        //    if (s.Count == 0)
-        //    {
-        //        s.Add("No elements had stresses above: " + limit + "[MPa]");
-        //    }
-        //    return s;
-        //}
-
-        //private void CalculateMisesStresses(Matrix<double> glob_stress, out Matrix<double> mises_stress)
-        //{
-        //    double sig_v;
-        //    mises_stress = Matrix<double>.Build.Dense(glob_stress.RowCount, glob_stress.ColumnCount / 6);
-        //    for (int i = 0; i < glob_stress.RowCount; i++)
-        //    {
-        //        for (int j = 0; j < glob_stress.ColumnCount/6; j++)
-        //        {
-        //            sig_v = Math.Sqrt(0.5 *(
-        //                Math.Pow(glob_stress[i, j * 6] - glob_stress[i, j * 6 + 1], 2) + 
-        //                Math.Pow(glob_stress[i, j * 6 + 1] - glob_stress[i, j * 6 + 2], 2) + 
-        //                Math.Pow(glob_stress[i, j * 6 + 2] - glob_stress[i, j * 6], 2)
-        //               + 3 * ( //NB! multiplication factor 3 is for shear stress12, 23 and 31, while mf should be 6 for stress12, 23, 31
-        //               glob_stress[i, j * 6 + 3] * glob_stress[i, j * 6 + 3] + 
-        //               glob_stress[i, j * 6 + 4] * glob_stress[i, j * 6 + 4] + 
-        //               glob_stress[i, j * 6 + 5] * glob_stress[i, j * 6 + 5]))); 
-        //            mises_stress[i, j] = sig_v;
-        //        }
-        //    }
-        //}
-        //
-        //private void CalculateInternalStresses(Matrix<double> strain, double E, double G, double v, out Matrix<double> stress)
-        //{                
-        //    //strain = [ex, ey, ez, gxy, gyz, gzx]
-        //    stress = Matrix<double>.Build.Dense(strain.RowCount, strain.ColumnCount);
-        //    double c = E / ((1.0 + v)*(1.0 - 2.0*v));
-        //    for (int i = 0; i < strain.RowCount; i++)
-        //    {
-        //        Debug.WriteLine(strain.Row(i));
-        //        for (int j = 0; j < strain.ColumnCount/6; j++)
-        //        {
-        //            stress[i, j * 6 + 0] = c * ((1 - v) * strain[i, j * 6 + 0] + v * (strain[i, j * 6 + 1] + strain[i, j * 6 + 2]));
-        //            stress[i, j * 6 + 1] = c * ((1 - v) * strain[i, j * 6 + 1] + v * (strain[i, j * 6 + 0] + strain[i, j * 6 + 2]));
-        //            stress[i, j * 6 + 2] = c * ((1 - v) * strain[i, j * 6 + 2] + v * (strain[i, j * 6 + 0] + strain[i, j * 6 + 1]));
-        //            stress[i, j * 6 + 3] = G * strain[i, j * 6 + 3];
-        //            stress[i, j * 6 + 4] = G * strain[i, j * 6 + 4];
-        //            stress[i, j * 6 + 5] = G * strain[i, j * 6 + 5];
-        //            Debug.WriteLine(stress.Row(i));
-        //        }
-        //    }
-        //}
-        
         private Grasshopper.DataTree<double> ConvertToNestedList(Matrix<double> M)
         {
             //Convert matrix rows to paths
@@ -387,7 +292,7 @@ namespace Beam3D
             return def_shape_nested;
         }
 
-        private void InterpolateDeformations(Vector<double> def, List<Point3d> points, List<Line> geometry, int n, double height, double width, out Matrix<double> def_shape, out List<Point3d> oldXYZ, out Matrix<double> glob_strain)
+        private void InterpolateDeformations(Vector<double> def, List<Point3d> points, List<Line> geometry, int n, double height, double width, double alpha, out Matrix<double> def_shape, out List<Point3d> oldXYZ, out Matrix<double> glob_strain)
         {
             def_shape = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 6);
             glob_strain = Matrix<double>.Build.Dense(geometry.Count, (n + 1) * 3);
@@ -421,7 +326,7 @@ namespace Beam3D
                 Matrix<double> scaled_disp = Matrix<double>.Build.Dense(n + 1, 3);
                 
                 //transform to local coords
-                var tf = TransformationMatrix(geometry[i].From, geometry[i].To, 0);
+                var tf = TransformationMatrix(geometry[i].From, geometry[i].To, alpha);
                 var T = tf.DiagonalStack(tf);
                 T = T.DiagonalStack(T);
                 u = T * u;
@@ -897,14 +802,14 @@ namespace Beam3D
             return t;
         }
 
-        private void ElementStiffnessMatrix(Line currentLine, double E, double A, double Iy, double Iz, double J, double G, out Point3d p1, out Point3d p2, out Matrix<double> Ke)
+        private void ElementStiffnessMatrix(Line currentLine, double E, double A, double Iy, double Iz, double J, double G, double alpha, out Point3d p1, out Point3d p2, out Matrix<double> Ke)
         {
             double L = Math.Round(currentLine.Length, 6);
 
             p1 = new Point3d(Math.Round(currentLine.From.X, 4), Math.Round(currentLine.From.Y, 4), Math.Round(currentLine.From.Z, 4));
             p2 = new Point3d(Math.Round(currentLine.To.X, 4), Math.Round(currentLine.To.Y, 4), Math.Round(currentLine.To.Z, 4));
 
-            Matrix<double> tf = TransformationMatrix(p1, p2, 0);
+            Matrix<double> tf = TransformationMatrix(p1, p2, alpha);
             var T = tf.DiagonalStack(tf);
             T = T.DiagonalStack(T);
 
@@ -944,7 +849,7 @@ namespace Beam3D
             Ke = T_T.Multiply(ke);
         }
 
-        private Matrix<double> GlobalStiffnessMatrix(List<Line> geometry, List<Point3d> points, double E, double A, double Iy, double Iz, double J, double G)
+        private Matrix<double> GlobalStiffnessMatrix(List<Line> geometry, List<Point3d> points, double E, double A, double Iy, double Iz, double J, double G, double alpha)
         {
             int gdofs = points.Count * 6;
             Matrix<double> KG = DenseMatrix.OfArray(new double[gdofs, gdofs]);
@@ -955,7 +860,7 @@ namespace Beam3D
                 Point3d p1, p2;
 
                 //Calculate Ke
-                ElementStiffnessMatrix(currentLine, E, A, Iy, Iz, J, G, out p1, out p2, out Ke);
+                ElementStiffnessMatrix(currentLine, E, A, Iy, Iz, J, G, alpha, out p1, out p2, out Ke);
 
                 //Fetch correct point indices
                 int node1 = points.IndexOf(p1);
@@ -1079,7 +984,7 @@ namespace Beam3D
             return bdc_value;
         }
         
-        private void SetMaterial(string mattxt, out double E, out double A, out double Iy, out double Iz, out double J, out double G, out double v)
+        private void SetMaterial(string mattxt, out double E, out double A, out double Iy, out double Iz, out double J, out double G, out double v, out double alpha)
         {
             string[] matProp = (mattxt.Split(','));
 
@@ -1087,9 +992,10 @@ namespace Beam3D
             A = (Math.Round(double.Parse(matProp[1]), 2));
             Iy = (Math.Round(double.Parse(matProp[2]), 2));
             Iz = (Math.Round(double.Parse(matProp[3]), 2));
-            G = (Math.Round(double.Parse(matProp[4]), 2));
-            v = (Math.Round(double.Parse(matProp[5]), 2));
-            
+            v = (Math.Round(double.Parse(matProp[4]), 2));
+            G = E / (2 * (1 + Math.Pow(v, 2)));
+            alpha = (Math.Round(double.Parse(matProp[5]), 2))*Math.PI/180; //to radians
+
             J = Iy + Iz;
         }
 
@@ -1246,6 +1152,102 @@ namespace Beam3D
         }
     }
 }
+
+//private void CalculateStrains(List<Point3d> old, List<Point3d> new1, int n, int m, double z, Matrix<double> def_shape, out Matrix<double> glob_strain)
+//{
+//    glob_strain = Matrix<double>.Build.Dense(m, n); //geometry.Count rows, n columns
+//    for (int i = 0; i < m; i++)
+//    {
+//        for (int j = 0; j < n; j++)
+//        {
+//            var originL = old[m + j].DistanceTo(old[m + j + 1]);
+//            var dL = new1[m + j].DistanceTo(new1[m + j + 1]) - originL;
+//            var eps_x_ax = dL / originL;
+
+//            TransformationMatrix()
+//            var eps_x_b = 
+//        }
+//    }
+//}
+
+//private List<string> AboveStressLimit(Matrix<double> mises_stress, double limit)
+//{
+//    List<string> s = new List<string>();
+//    for (int i = 0; i < mises_stress.RowCount; i++)
+//    {
+//        string ts = "";
+//        string ds = "";
+//        bool f = true;
+//        for (int j = 0; j < mises_stress.ColumnCount; j++)
+//        {
+//            if (mises_stress[i, j] > limit)
+//            {
+//                if (f)
+//                {
+//                    ts += j;
+//                    ds += Math.Round(mises_stress[i, j]);
+//                    f = false;
+//                }
+//                else
+//                {
+//                    ts += ", " + j;
+//                    ds += ", " + Math.Round(mises_stress[i, j]);
+//                }
+//            }
+//        }
+//        if (ts.Length > 0)
+//        {
+//            s.Add("Main element: " + i + "; Sub element(s): " + ts + "; Stresses: " + ds);
+//        }
+//    }
+//    if (s.Count == 0)
+//    {
+//        s.Add("No elements had stresses above: " + limit + "[MPa]");
+//    }
+//    return s;
+//}
+
+//private void CalculateMisesStresses(Matrix<double> glob_stress, out Matrix<double> mises_stress)
+//{
+//    double sig_v;
+//    mises_stress = Matrix<double>.Build.Dense(glob_stress.RowCount, glob_stress.ColumnCount / 6);
+//    for (int i = 0; i < glob_stress.RowCount; i++)
+//    {
+//        for (int j = 0; j < glob_stress.ColumnCount/6; j++)
+//        {
+//            sig_v = Math.Sqrt(0.5 *(
+//                Math.Pow(glob_stress[i, j * 6] - glob_stress[i, j * 6 + 1], 2) + 
+//                Math.Pow(glob_stress[i, j * 6 + 1] - glob_stress[i, j * 6 + 2], 2) + 
+//                Math.Pow(glob_stress[i, j * 6 + 2] - glob_stress[i, j * 6], 2)
+//               + 3 * ( //NB! multiplication factor 3 is for shear stress12, 23 and 31, while mf should be 6 for stress12, 23, 31
+//               glob_stress[i, j * 6 + 3] * glob_stress[i, j * 6 + 3] + 
+//               glob_stress[i, j * 6 + 4] * glob_stress[i, j * 6 + 4] + 
+//               glob_stress[i, j * 6 + 5] * glob_stress[i, j * 6 + 5]))); 
+//            mises_stress[i, j] = sig_v;
+//        }
+//    }
+//}
+//
+//private void CalculateInternalStresses(Matrix<double> strain, double E, double G, double v, out Matrix<double> stress)
+//{                
+//    //strain = [ex, ey, ez, gxy, gyz, gzx]
+//    stress = Matrix<double>.Build.Dense(strain.RowCount, strain.ColumnCount);
+//    double c = E / ((1.0 + v)*(1.0 - 2.0*v));
+//    for (int i = 0; i < strain.RowCount; i++)
+//    {
+//        Debug.WriteLine(strain.Row(i));
+//        for (int j = 0; j < strain.ColumnCount/6; j++)
+//        {
+//            stress[i, j * 6 + 0] = c * ((1 - v) * strain[i, j * 6 + 0] + v * (strain[i, j * 6 + 1] + strain[i, j * 6 + 2]));
+//            stress[i, j * 6 + 1] = c * ((1 - v) * strain[i, j * 6 + 1] + v * (strain[i, j * 6 + 0] + strain[i, j * 6 + 2]));
+//            stress[i, j * 6 + 2] = c * ((1 - v) * strain[i, j * 6 + 2] + v * (strain[i, j * 6 + 0] + strain[i, j * 6 + 1]));
+//            stress[i, j * 6 + 3] = G * strain[i, j * 6 + 3];
+//            stress[i, j * 6 + 4] = G * strain[i, j * 6 + 4];
+//            stress[i, j * 6 + 5] = G * strain[i, j * 6 + 5];
+//            Debug.WriteLine(stress.Row(i));
+//        }
+//    }
+//}
 
 #region Old CalcComp
 //using System;
