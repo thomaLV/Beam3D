@@ -69,6 +69,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Avg element.cs" />
     <Compile Include="BDCComponent.cs" />
     <Compile Include="CalcComponent.cs" />
     <Compile Include="Beam3DInfo.cs" />
