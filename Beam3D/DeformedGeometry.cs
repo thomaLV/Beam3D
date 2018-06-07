@@ -41,13 +41,18 @@ namespace Beam3D
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
+            pManager.AddNumberParameter("Stress", "Ss", "Nodal stress", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Strain", "Sn", "Nodal strain", GH_ParamAccess.list);
             pManager.AddGenericParameter("Deformation", "Def", "Deformations from 3DBeamCalc", GH_ParamAccess.item);
             pManager.AddPointParameter("New base points", "NBP", "New base points from Calc component", GH_ParamAccess.list);
             pManager.AddNumberParameter("Scale", "S", "The Scale Factor for Deformation", GH_ParamAccess.item, 1000);
+            pManager.AddIntegerParameter("Elements", "E", "Number of sub-elements", GH_ParamAccess.item, 1);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
+            pManager.AddNumberParameter("Stress", "A", "Stress per sub-element", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Strain", "A", "Strain per sub-element", GH_ParamAccess.list);
             pManager.AddCurveParameter("Deformed Geometry", "Def.G.", "Deformed Geometry as List of Lines", GH_ParamAccess.list);
         }
 
@@ -56,19 +61,25 @@ namespace Beam3D
             List<Curve> defC = new List<Curve>();
 
             //Expected inputs and outputs
+            List<double> stress = new List<double>();
+            List<double> strain = new List<double>();
             Matrix<double> def = Matrix<double>.Build.Dense(1, 1);
             List<Point3d> oldXYZ = new List<Point3d>();
-            double scale = 1000;                            //input deformation scale
+            double scale = 1000; //input deformation scale
+            int ns = 1;
 
 
             //Set expected inputs from Indata
-            if (!DA.GetData(0, ref def)) return;
-            if (!DA.GetDataList(1, oldXYZ)) return;
-            if (!DA.GetData(2, ref scale)) return;
+            if (!DA.GetDataList(0, stress)) return;
+            if (!DA.GetDataList(1, strain)) return;
+            if (!DA.GetData(2, ref def)) return;
+            if (!DA.GetDataList(3, oldXYZ)) return;
+            if (!DA.GetData(4, ref scale)) return;
+            if (!DA.GetData(5, ref ns)) return;
 
 
             //no. of nodes per element
-            int n = def.ColumnCount / 6;
+            int n = ns + 1;
 
             //scale deformations
             def = scale * def;
@@ -95,7 +106,23 @@ namespace Beam3D
                 Curve nc = Curve.CreateInterpolatedCurve(tempNew, 3);
                 defC.Add(nc);
             }
-            DA.SetDataList(0, defC);
+
+            List<double> ss_x = new List<double>();
+            List<double> sn_x = new List<double>();
+            
+            for (int i = 0; i < stress.Count / 3; i++)
+            {
+                ss_x.Add(stress[i * 3]);
+                sn_x.Add(strain[i * 3]);
+            }
+
+            ss_x = GetAverage(ss_x, ns, defC.Count);
+            sn_x = GetAverage(sn_x, ns, defC.Count);
+
+
+            DA.SetDataList(0, ss_x);
+            DA.SetDataList(1, sn_x);
+            DA.SetDataList(2, defC);
         }//End of main program
 
         protected override System.Drawing.Bitmap Icon
@@ -111,6 +138,21 @@ namespace Beam3D
             get { return new Guid("6391b902-2ec8-487c-94fd-b921479620b3"); }
         }
 
+        private List<double> GetAverage(List<double> s, int n, int el)
+        {
+            var s_avg = new List<double>();
+            for (int i = 0, ct = 0; s_avg.Count < el*n; i++)
+            {
+                if (ct == n)
+                {
+                    ct = 0;
+                    continue;
+                }
+                s_avg.Add((s[i] + s[i + 1]) / 2);
+                ct++;
+            }
+            return s_avg;
+        }
 
         /// Component Visual//
         //        public class Attributes_Custom : Grasshopper.Kernel.Attributes.GH_ComponentAttributes
