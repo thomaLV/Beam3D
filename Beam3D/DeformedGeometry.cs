@@ -46,7 +46,6 @@ namespace Beam3D
             pManager.AddGenericParameter("Deformation", "Def", "Deformations from 3DBeamCalc", GH_ParamAccess.item);
             pManager.AddPointParameter("New base points", "NBP", "New base points from Calc component", GH_ParamAccess.list);
             pManager.AddNumberParameter("Scale", "S", "The Scale Factor for Deformation", GH_ParamAccess.item, 1000);
-            pManager.AddIntegerParameter("Elements", "E", "Number of sub-elements", GH_ParamAccess.item, 1);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -66,7 +65,6 @@ namespace Beam3D
             Matrix<double> def = Matrix<double>.Build.Dense(1, 1);
             List<Point3d> oldXYZ = new List<Point3d>();
             double scale = 1000; //input deformation scale
-            int ns = 1;
 
 
             //Set expected inputs from Indata
@@ -75,11 +73,11 @@ namespace Beam3D
             if (!DA.GetData(2, ref def)) return;
             if (!DA.GetDataList(3, oldXYZ)) return;
             if (!DA.GetData(4, ref scale)) return;
-            if (!DA.GetData(5, ref ns)) return;
 
 
             //no. of nodes per element
-            int n = ns + 1;
+            int n = def.ColumnCount / 6;
+            int ns = n - 1;
 
             //scale deformations
             def = scale * def;

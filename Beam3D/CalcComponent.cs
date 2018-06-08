@@ -52,7 +52,7 @@ namespace Beam3D
             pManager.AddTextParameter("Material properties", "Mat", "Material Properties: E, A, Iy, Iz, v, alpha (rotation about x)", GH_ParamAccess.item, "200000,3600,4920000,4920000, 0.3, 0");
             pManager.AddTextParameter("PointLoads", "PL", "Load given as Vector [N]", GH_ParamAccess.list);
             pManager.AddTextParameter("PointMoment", "PM", "Moment set in a point in [Nm]", GH_ParamAccess.list, "");
-            pManager.AddIntegerParameter("Elements", "n", "Number of elements", GH_ParamAccess.item, 1);
+            pManager.AddIntegerParameter("Sub-Elements", "n", "Number of sub-elements", GH_ParamAccess.item, 1);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
