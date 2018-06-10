@@ -553,211 +553,211 @@ namespace Beam3D
             }
         }
 
-        private static bool IsDiagonalPositive(Matrix<double> A)
-        {
-            bool isPositive = true;
-            for (int i = 0; i < A.RowCount; i++)
-            {
-                if (A[i, i] <= 0)
-                {
-                    return isPositive = false;
-                }
-            }
-            return isPositive;
-        }
+        //private static bool IsDiagonalPositive(Matrix<double> A)
+        //{
+        //    bool isPositive = true;
+        //    for (int i = 0; i < A.RowCount; i++)
+        //    {
+        //        if (A[i, i] <= 0)
+        //        {
+        //            return isPositive = false;
+        //        }
+        //    }
+        //    return isPositive;
+        //}
 
-        private void CheckSolvers(Matrix<double> K_red, Vector<double> load_red, int decimals, out string output_time)
-        {
-            string time;
-            //Unrounded
-            output_time = "Unrounded K_red" + Environment.NewLine;
-            bool issym = K_red.IsSymmetric();
-            bool diagposi = IsDiagonalPositive(K_red);
-            bool ishermitian = K_red.IsHermitian();
-            output_time += "IsSymmetric? " + issym + ", IsDiagonalPositive? " + diagposi + ", IsHermitian? " + ishermitian + Environment.NewLine + Environment.NewLine;
+        //private void CheckSolvers(Matrix<double> K_red, Vector<double> load_red, int decimals, out string output_time)
+        //{
+        //    string time;
+        //    //Unrounded
+        //    output_time = "Unrounded K_red" + Environment.NewLine;
+        //    bool issym = K_red.IsSymmetric();
+        //    bool diagposi = IsDiagonalPositive(K_red);
+        //    bool ishermitian = K_red.IsHermitian();
+        //    output_time += "IsSymmetric? " + issym + ", IsDiagonalPositive? " + diagposi + ", IsHermitian? " + ishermitian + Environment.NewLine + Environment.NewLine;
 
-            TrySolve(K_red, load_red, out time);
-            output_time += "Dense, unrounded K_red: " + Environment.NewLine + time + Environment.NewLine;
+        //    TrySolve(K_red, load_red, out time);
+        //    output_time += "Dense, unrounded K_red: " + Environment.NewLine + time + Environment.NewLine;
 
-            K_red = Matrix<double>.Build.SparseOfMatrix(K_red);
-            TrySolve(K_red, load_red, out time);
-            output_time += "Sparse, unrounded K_red: " + Environment.NewLine + time + Environment.NewLine;
+        //    K_red = Matrix<double>.Build.SparseOfMatrix(K_red);
+        //    TrySolve(K_red, load_red, out time);
+        //    output_time += "Sparse, unrounded K_red: " + Environment.NewLine + time + Environment.NewLine;
 
-            //Rounded
-            K_red = Matrix<double>.Build.DenseOfMatrix(K_red);
-            K_red = RoundMatrix(K_red, decimals);
-            output_time += "Rounded to " + decimals + " decimals." + Environment.NewLine;
+        //    //Rounded
+        //    K_red = Matrix<double>.Build.DenseOfMatrix(K_red);
+        //    K_red = RoundMatrix(K_red, decimals);
+        //    output_time += "Rounded to " + decimals + " decimals." + Environment.NewLine;
 
-            issym = K_red.IsSymmetric();
-            diagposi = IsDiagonalPositive(K_red);
-            ishermitian = K_red.IsHermitian();
-            output_time += "IsSymmetric? " + issym + ", IsDiagonalPositive? " + diagposi + ", IsHermitian? " + ishermitian + Environment.NewLine + Environment.NewLine;
+        //    issym = K_red.IsSymmetric();
+        //    diagposi = IsDiagonalPositive(K_red);
+        //    ishermitian = K_red.IsHermitian();
+        //    output_time += "IsSymmetric? " + issym + ", IsDiagonalPositive? " + diagposi + ", IsHermitian? " + ishermitian + Environment.NewLine + Environment.NewLine;
 
-            TrySolve(K_red, load_red, out time);
-            output_time += "Dense, rounded K_red: " + Environment.NewLine + time + Environment.NewLine;
+        //    TrySolve(K_red, load_red, out time);
+        //    output_time += "Dense, rounded K_red: " + Environment.NewLine + time + Environment.NewLine;
 
-            K_red = Matrix<double>.Build.SparseOfMatrix(K_red);
-            TrySolve(K_red, load_red, out time);
-            output_time += "Sparse, rounded K_red: " + Environment.NewLine + time + Environment.NewLine;
-            output_time += "=================END OF TEST=================" + Environment.NewLine + Environment.NewLine;
-        }
+        //    K_red = Matrix<double>.Build.SparseOfMatrix(K_red);
+        //    TrySolve(K_red, load_red, out time);
+        //    output_time += "Sparse, rounded K_red: " + Environment.NewLine + time + Environment.NewLine;
+        //    output_time += "=================END OF TEST=================" + Environment.NewLine + Environment.NewLine;
+        //}
 
-        private void TrySolve(Matrix<double> A, Vector<double> load_red, out string time)
-        {
-            time = "TrySolve Start:" + Environment.NewLine;
-            long timer = 0;
-            Stopwatch watch = new Stopwatch();
-            try
-            {
-                watch.Start();
-                A.Solve(load_red);
-                watch.Stop();
-                timer = watch.ElapsedMilliseconds;
-                time += "Regular solve: " + timer.ToString() + Environment.NewLine;
-            }
-            catch (Exception)
-            {
-                time += "Regular solve raised exception" + Environment.NewLine;
-            }
+        //private void TrySolve(Matrix<double> A, Vector<double> load_red, out string time)
+        //{
+        //    time = "TrySolve Start:" + Environment.NewLine;
+        //    long timer = 0;
+        //    Stopwatch watch = new Stopwatch();
+        //    try
+        //    {
+        //        watch.Start();
+        //        A.Solve(load_red);
+        //        watch.Stop();
+        //        timer = watch.ElapsedMilliseconds;
+        //        time += "Regular solve: " + timer.ToString() + Environment.NewLine;
+        //    }
+        //    catch (Exception)
+        //    {
+        //        time += "Regular solve raised exception" + Environment.NewLine;
+        //    }
 
-            if (A.GetType().Name == "SparseMatrix")
-            {
-                time += "End of TrySolve since Matrix is Sparse (other solvers are unsupported)" + Environment.NewLine;
-                return;
-            }
+        //    if (A.GetType().Name == "SparseMatrix")
+        //    {
+        //        time += "End of TrySolve since Matrix is Sparse (other solvers are unsupported)" + Environment.NewLine;
+        //        return;
+        //    }
 
-            try
-            {
-                watch.Start();
-                A.Cholesky().Solve(load_red);
-                watch.Stop();
-                timer = watch.ElapsedMilliseconds - timer;
-                time += "Cholesky solve: " + timer.ToString() + Environment.NewLine;
-            }
-            catch (Exception)
-            {
-                time += "Cholesky solve raised exception" + Environment.NewLine;
-            }
-            try
-            {
-                watch.Start();
-                A.QR().Solve(load_red);
-                watch.Stop();
-                timer = watch.ElapsedMilliseconds - timer;
-                time += "QR solve: " + timer.ToString() + Environment.NewLine;
-            }
-            catch (Exception)
-            {
-                time += "QR solve raised exception" + Environment.NewLine;
-            }
+        //    try
+        //    {
+        //        watch.Start();
+        //        A.Cholesky().Solve(load_red);
+        //        watch.Stop();
+        //        timer = watch.ElapsedMilliseconds - timer;
+        //        time += "Cholesky solve: " + timer.ToString() + Environment.NewLine;
+        //    }
+        //    catch (Exception)
+        //    {
+        //        time += "Cholesky solve raised exception" + Environment.NewLine;
+        //    }
+        //    try
+        //    {
+        //        watch.Start();
+        //        A.QR().Solve(load_red);
+        //        watch.Stop();
+        //        timer = watch.ElapsedMilliseconds - timer;
+        //        time += "QR solve: " + timer.ToString() + Environment.NewLine;
+        //    }
+        //    catch (Exception)
+        //    {
+        //        time += "QR solve raised exception" + Environment.NewLine;
+        //    }
 
-            try
-            {
-                watch.Start();
-                A.Svd().Solve(load_red);
-                watch.Stop();
-                timer = watch.ElapsedMilliseconds - timer;
-                time += "Svd solve: " + timer.ToString() + Environment.NewLine;
-            }
-            catch (Exception)
-            {
-                time += "Svd solve raised exception" + Environment.NewLine;
-            }
-            try
-            {
-                watch.Start();
-                A.LU().Solve(load_red);
-                watch.Stop();
-                timer = watch.ElapsedMilliseconds - timer;
-                time += "LU solve: " + timer.ToString() + Environment.NewLine;
-            }
-            catch (Exception)
-            {
-                time += "LU solve raised exception" + Environment.NewLine;
-            }
-        }
+        //    try
+        //    {
+        //        watch.Start();
+        //        A.Svd().Solve(load_red);
+        //        watch.Stop();
+        //        timer = watch.ElapsedMilliseconds - timer;
+        //        time += "Svd solve: " + timer.ToString() + Environment.NewLine;
+        //    }
+        //    catch (Exception)
+        //    {
+        //        time += "Svd solve raised exception" + Environment.NewLine;
+        //    }
+        //    try
+        //    {
+        //        watch.Start();
+        //        A.LU().Solve(load_red);
+        //        watch.Stop();
+        //        timer = watch.ElapsedMilliseconds - timer;
+        //        time += "LU solve: " + timer.ToString() + Environment.NewLine;
+        //    }
+        //    catch (Exception)
+        //    {
+        //        time += "LU solve raised exception" + Environment.NewLine;
+        //    }
+        //}
 
-        private string PrintMatrix(object B, string head)
-        {
-            Debug.WriteLine(head);
-            string ss = "";
-            if (B.GetType() == typeof(SparseMatrix))
-            {
-                Matrix<double> A = (Matrix<double>)B;
-                ss += A.RowCount.ToString() + "x" + A.ColumnCount.ToString() + "-matrix" + Environment.NewLine;
-                for (int i = 0; i < A.RowCount; i++)
-                {
-                    for (int j = 0; j < A.ColumnCount; j++)
-                    {
-                        ss += String.Format(" {0,15:0.0} ", A[i, j]);
-                    }
-                    ss += Environment.NewLine + Environment.NewLine + Environment.NewLine;
-                }
-                Debug.WriteLine(ss);
-                return ss;
-            }
-            else if (B.GetType() == typeof(DenseMatrix))
-            {
-                Matrix<double> A = (Matrix<double>)B;
-                ss += A.RowCount.ToString() + "x" + A.ColumnCount.ToString() + "-matrix" + Environment.NewLine;
-                for (int i = 0; i < A.RowCount; i++)
-                {
-                    for (int j = 0; j < A.ColumnCount; j++)
-                    {
-                        ss += String.Format(" {0,15:0.0} ", A[i, j]);
-                    }
-                    ss += Environment.NewLine + Environment.NewLine + Environment.NewLine;
-                }
-                Debug.WriteLine(ss);
-                return ss;
-            }
-            else if (B.GetType() == typeof(MathNet.Numerics.LinearAlgebra.Double.DenseVector))
-            {
-                Vector<double> A = (Vector<double>)B;
-                ss += "1x" + A.Count.ToString() + "-vector" + Environment.NewLine;
-                for (int i = 0; i < A.Count; i++)
-                {
-                    ss += String.Format(" {0,10:0.0} ", A[i]);
-                }
-                System.Diagnostics.Debug.WriteLine(ss);
-                return ss;
-            }
-            else if (B.GetType() == typeof(List<int>))
-            {
-                List<int> A = (List<int>)B;
-                ss += "1x" + A.Count.ToString() + "-list" + Environment.NewLine;
-                for (int i = 0; i < A.Count; i++)
-                {
-                    ss += String.Format(" {0,10:0.0} ", A[i]);
-                }
-                System.Diagnostics.Debug.WriteLine(ss);
-                return ss;
-            }
-            else if (B.GetType() == typeof(List<double>))
-            {
-                List<double> A = (List<double>)B;
-                ss += "1x" + A.Count.ToString() + "-list" + Environment.NewLine;
-                for (int i = 0; i < A.Count; i++)
-                {
-                    ss += String.Format(" {0,10:0.0} ", A[i]);
-                }
-                System.Diagnostics.Debug.WriteLine(ss);
-                return ss;
-            }
-            return ss;
-        }
+        //private string PrintMatrix(object B, string head)
+        //{
+        //    Debug.WriteLine(head);
+        //    string ss = "";
+        //    if (B.GetType() == typeof(SparseMatrix))
+        //    {
+        //        Matrix<double> A = (Matrix<double>)B;
+        //        ss += A.RowCount.ToString() + "x" + A.ColumnCount.ToString() + "-matrix" + Environment.NewLine;
+        //        for (int i = 0; i < A.RowCount; i++)
+        //        {
+        //            for (int j = 0; j < A.ColumnCount; j++)
+        //            {
+        //                ss += String.Format(" {0,15:0.0} ", A[i, j]);
+        //            }
+        //            ss += Environment.NewLine + Environment.NewLine + Environment.NewLine;
+        //        }
+        //        Debug.WriteLine(ss);
+        //        return ss;
+        //    }
+        //    else if (B.GetType() == typeof(DenseMatrix))
+        //    {
+        //        Matrix<double> A = (Matrix<double>)B;
+        //        ss += A.RowCount.ToString() + "x" + A.ColumnCount.ToString() + "-matrix" + Environment.NewLine;
+        //        for (int i = 0; i < A.RowCount; i++)
+        //        {
+        //            for (int j = 0; j < A.ColumnCount; j++)
+        //            {
+        //                ss += String.Format(" {0,15:0.0} ", A[i, j]);
+        //            }
+        //            ss += Environment.NewLine + Environment.NewLine + Environment.NewLine;
+        //        }
+        //        Debug.WriteLine(ss);
+        //        return ss;
+        //    }
+        //    else if (B.GetType() == typeof(MathNet.Numerics.LinearAlgebra.Double.DenseVector))
+        //    {
+        //        Vector<double> A = (Vector<double>)B;
+        //        ss += "1x" + A.Count.ToString() + "-vector" + Environment.NewLine;
+        //        for (int i = 0; i < A.Count; i++)
+        //        {
+        //            ss += String.Format(" {0,10:0.0} ", A[i]);
+        //        }
+        //        System.Diagnostics.Debug.WriteLine(ss);
+        //        return ss;
+        //    }
+        //    else if (B.GetType() == typeof(List<int>))
+        //    {
+        //        List<int> A = (List<int>)B;
+        //        ss += "1x" + A.Count.ToString() + "-list" + Environment.NewLine;
+        //        for (int i = 0; i < A.Count; i++)
+        //        {
+        //            ss += String.Format(" {0,10:0.0} ", A[i]);
+        //        }
+        //        System.Diagnostics.Debug.WriteLine(ss);
+        //        return ss;
+        //    }
+        //    else if (B.GetType() == typeof(List<double>))
+        //    {
+        //        List<double> A = (List<double>)B;
+        //        ss += "1x" + A.Count.ToString() + "-list" + Environment.NewLine;
+        //        for (int i = 0; i < A.Count; i++)
+        //        {
+        //            ss += String.Format(" {0,10:0.0} ", A[i]);
+        //        }
+        //        System.Diagnostics.Debug.WriteLine(ss);
+        //        return ss;
+        //    }
+        //    return ss;
+        //}
 
-        private static Matrix<double> RoundMatrix(Matrix<double> A, int decs)
-        {
-            for (int i = 0; i < A.RowCount; i++)
-            {
-                for (int j = 0; j < A.ColumnCount; j++)
-                {
-                    A[i, j] = Math.Round(A[i, j], decs);
-                }
-            }
-            return A;
-        }
+        //private static Matrix<double> RoundMatrix(Matrix<double> A, int decs)
+        //{
+        //    for (int i = 0; i < A.RowCount; i++)
+        //    {
+        //        for (int j = 0; j < A.ColumnCount; j++)
+        //        {
+        //            A[i, j] = Math.Round(A[i, j], decs);
+        //        }
+        //    }
+        //    return A;
+        //}
 
         private Matrix<double> TransformationMatrix(Point3d p1, Point3d p2, double alpha)
         {
