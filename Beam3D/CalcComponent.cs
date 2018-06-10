@@ -200,7 +200,7 @@ namespace Beam3D
                 //Calculate the reaction forces from the deformations
                 reactions = K_tot.Multiply(def_tot);
                 reactions -= load; //method for separating reactions and applied loads
-                reactions.CoerceZero(1e-10);
+                reactions.CoerceZero(1e-8);
 
 
                 //Interpolate deformations using shape functions
