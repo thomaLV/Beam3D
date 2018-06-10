@@ -10,7 +10,6 @@ using Grasshopper.GUI;
 
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
-using System.Diagnostics;
 
 namespace Beam3D
 {
@@ -267,21 +266,21 @@ namespace Beam3D
 
         } //End of main component
 
-        private Grasshopper.DataTree<double> ConvertToNestedList(Matrix<double> M)
-        {
-            //Convert matrix rows to paths
-            Grasshopper.DataTree<double> def_shape_nested = new Grasshopper.DataTree<double>();
-            for (int i = 0; i < M.RowCount; i++)
-            {
-                Grasshopper.Kernel.Data.GH_Path pth = new Grasshopper.Kernel.Data.GH_Path(i);
-                for (int j = 0; j < M.ColumnCount; j++)
-                {
-                    //Adds number to end of current path (pth)
-                    def_shape_nested.Add(M[i, j], pth);
-                }
-            }
-            return def_shape_nested;
-        }
+        //private Grasshopper.DataTree<double> ConvertToNestedList(Matrix<double> M)
+        //{
+        //    //Convert matrix rows to paths
+        //    Grasshopper.DataTree<double> def_shape_nested = new Grasshopper.DataTree<double>();
+        //    for (int i = 0; i < M.RowCount; i++)
+        //    {
+        //        Grasshopper.Kernel.Data.GH_Path pth = new Grasshopper.Kernel.Data.GH_Path(i);
+        //        for (int j = 0; j < M.ColumnCount; j++)
+        //        {
+        //            //Adds number to end of current path (pth)
+        //            def_shape_nested.Add(M[i, j], pth);
+        //        }
+        //    }
+        //    return def_shape_nested;
+        //}
 
         private void InterpolateDeformations(Vector<double> def, List<Point3d> points, List<Line> geometry, int n, double height, double width, double alpha, out Matrix<double> def_shape, out List<Point3d> oldXYZ, out Matrix<double> glob_strain)
         {
