@@ -43,7 +43,7 @@ namespace Beam3D
         {
             pManager.AddNumberParameter("Stress", "Ss", "Nodal stress", GH_ParamAccess.list);
             pManager.AddNumberParameter("Strain", "Sn", "Nodal strain", GH_ParamAccess.list);
-            pManager.AddGenericParameter("Deformation", "Def", "Deformations from 3DBeamCalc", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Matrix Deformations", "MDef", "Matrix Deformations from 3DBeamCalc", GH_ParamAccess.item);
             pManager.AddPointParameter("New base points", "NBP", "New base points from Calc component", GH_ParamAccess.list);
             pManager.AddNumberParameter("Scale", "S", "The Scale Factor for Deformation", GH_ParamAccess.item, 1000);
         }
